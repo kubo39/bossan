@@ -570,6 +570,9 @@ write_headers(client_t *client, char *data, size_t datalen)
       VALUE object1 = rb_ary_entry(arr, i);
       VALUE object2 = rb_hash_aref(client->headers, object1);
       
+      Check_Type(object1, T_STRING);
+      Check_Type(object2, T_STRING);
+      
       name = StringValuePtr(object1);
       namelen = RSTRING_LEN(object1);
   
@@ -669,6 +672,8 @@ processs_write(client_t *client)
 
   if(iterator != NULL){
     item = rb_ary_entry(rb_ary_entry(iterator, 2), 0);
+
+    Check_Type(item, T_STRING);
 
     buf = StringValuePtr(item);
     buflen = RSTRING_LEN(item);
