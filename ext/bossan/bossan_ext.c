@@ -376,6 +376,7 @@ blocking_write(client_t *client, char *data, size_t len)
       }else{
 	// fatal error
 	//close
+	rb_raise(rb_eException, "fatal error");
         
 	// TODO:
 	// raise exception from errno
@@ -491,6 +492,7 @@ writev_bucket(write_bucket *data)
       return 0;
     }else{
       //ERROR
+      rb_raise(rb_eException, "fatal error");
 
       // TODO:
       // raise exception from errno
@@ -1622,6 +1624,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
       if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
 	break;
       } else { /* fatal error */
+	rb_raise(rb_eException, "fatal error");
 	// TODO:
 	// raise exception from errno
 	/* rb_raise(); */
