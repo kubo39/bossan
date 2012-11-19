@@ -536,7 +536,6 @@ write_headers(client_t *client, char *data, size_t datalen)
   write_bucket *bucket;
   uint32_t i = 0, hlen = 0;
 
-  VALUE headers = NULL;
   VALUE arr = NULL;
   VALUE object = NULL;
   char *name = NULL;
@@ -545,13 +544,20 @@ write_headers(client_t *client, char *data, size_t datalen)
   long valuelen;
 
   if(client->headers){
-    headers = client->headers;
+    if (TYPE(client->headers) != T_HASH) {
+      return -1;
+    }
     arr = rb_funcall(client->headers, i_keys, 0);
     hlen = RARRAY_LEN(arr);
   }
   bucket = new_write_bucket(client->fd, ( hlen * 4 * 2) + 32 );
   
   object = client->http_status;
+
+  if(TYPE(object) != T_STRING){
+    return -1;
+  }
+
   if(object){
     value = StringValuePtr(object);
     valuelen = RSTRING_LEN(object);
@@ -565,14 +571,24 @@ write_headers(client_t *client, char *data, size_t datalen)
       add_header(bucket, "Connection", 10, "keep-alive", 10);
     }
   }
+
+  VALUE object1, object2;
   
   //write header
   if(client->headers){
     for(i=0; i < hlen; i++){
-      VALUE object1 = rb_ary_entry(arr, i);
-      VALUE object2 = rb_hash_aref(client->headers, object1);
-      
+      object1 = rb_ary_entry(arr, i);
       Check_Type(object1, T_STRING);
+
+      if (TYPE(client->headers)!=T_HASH){
+	goto error;
+      }
+      VALUE tmp = rb_funcall(client->headers, rb_intern("key?"), 1, object1);
+      if (tmp == Qfalse){
+	goto error;
+      }
+      object2 = rb_hash_aref(client->headers, object1);
+
       Check_Type(object2, T_STRING);
       
       name = StringValuePtr(object1);
@@ -580,7 +596,7 @@ write_headers(client_t *client, char *data, size_t datalen)
   
       value = StringValuePtr(object2);
       valuelen = RSTRING_LEN(object2);
-      
+
       if (strchr(name, '\n') != 0 || strchr(value, '\n') != 0) {
 	rb_raise(rb_eArgError, "embedded newline in response header and value");
       }
@@ -607,7 +623,6 @@ write_headers(client_t *client, char *data, size_t datalen)
   }
   set2bucket(bucket, CRLF, 2);
 
-  // body
   if(data){
     set2bucket(bucket, data, datalen);
   }
@@ -663,6 +678,7 @@ static inline int
 processs_write(client_t *client)
 {
   VALUE iterator = NULL;
+  VALUE arr;
   VALUE item;
   char *buf;
   ssize_t buflen;
@@ -673,9 +689,23 @@ processs_write(client_t *client)
   iterator = client->response_iter;
 
   if(iterator != NULL){
-    item = rb_ary_entry(rb_ary_entry(iterator, 2), 0);
+    /* Check_Type(iterator, T_ARRAY); */
+    /* assert(3 == RARRAY_LEN(iterator)); */
+    if (TYPE(iterator) != T_ARRAY || RARRAY_LEN(iterator) != 3){
+      return -1;
+    }
 
-    Check_Type(item, T_STRING);
+    arr = rb_ary_entry(iterator, 2);
+
+    if (TYPE(arr) != T_ARRAY){
+      return -1;
+    }
+    
+    item = rb_ary_entry(arr, 0);
+
+    if(TYPE(item) != T_STRING) {
+      return -1;
+    }
 
     buf = StringValuePtr(item);
     buflen = RSTRING_LEN(item);
@@ -727,6 +757,7 @@ static inline int
 start_response_write(client_t *client)
 {
   VALUE iterator;
+  VALUE arr;
   VALUE item;
   char *buf;
   ssize_t buflen;
@@ -734,7 +765,19 @@ start_response_write(client_t *client)
   iterator = client->response;
   client->response_iter = iterator;
 
-  VALUE v_body = rb_ary_entry(rb_ary_entry(iterator, 2), 0);
+  if (TYPE(iterator) != T_ARRAY){
+    return -1;
+  }
+  assert(3 == RARRAY_LEN(iterator));
+
+  arr = rb_ary_entry(iterator, 2);
+
+  if (TYPE(arr) != T_ARRAY){
+    return -1;
+  }
+
+  VALUE v_body = rb_ary_entry(arr, 0);
+  Check_Type(v_body, T_STRING);
 
   if (v_body) {
     buf = StringValuePtr(v_body);
@@ -1483,6 +1526,13 @@ process_rack_app(client_t *cli)
   }
   
   VALUE* response_ary = RARRAY_PTR(cli->response);
+
+  if (TYPE(response_ary[0])!=T_FIXNUM ||
+      TYPE(response_ary[1])!=T_HASH   ||
+      TYPE(response_ary[2])!=T_ARRAY){
+    return 0;
+  }
+
   cli->status_code = NUM2INT(response_ary[0]);
   cli->headers = response_ary[1];
 
@@ -1542,7 +1592,7 @@ call_rack_app(client_t *client, picoev_loop* loop)
     close_conn(client, loop);
     return;
   }
-    
+
   ret = response_start(client);
   /* printf("response_start done: %d\n", ret); */
   switch(ret){
