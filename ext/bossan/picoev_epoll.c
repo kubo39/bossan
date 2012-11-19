@@ -87,8 +87,6 @@ int picoev_update_events_internal(picoev_loop* _loop, int fd, int events)
   struct epoll_event ev;
   int epoll_ret;
 
-  /* printf("loop_id1 %d\n", (&loop->loop)->loop_id); */
-  /* printf("loop_id2 %d\n", picoev.fds[fd].loop_id); */
   assert(PICOEV_FD_BELONGS_TO_LOOP(&loop->loop, fd));
   
   if ((events & PICOEV_READWRITE) == target->events) {
