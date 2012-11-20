@@ -1857,39 +1857,6 @@ sigpipe_cb(int signum)
 {
 }
 
-// Bossan::Server.listen("127.0.0.1", 8000)
-// only support INET
-static VALUE
-bossan_listen(VALUE self, VALUE args1, VALUE args2)
-{
-  int ret;
-
-  if(listen_sock > 0){
-    rb_raise(rb_eException, "already set listen socket");
-  }
-  
-  server_name = StringValuePtr(args1);
-  server_port = NUM2INT(args2);
-
-  long _port = NUM2INT(args2);
-
-  if (_port <= 0 || _port >= 65536) {
-    // out of range
-    rb_raise(rb_eArgError, "port number outside valid range");
-  }
-
-  server_port = (short)_port;
-
-  ret = inet_listen();
-
-  if(ret < 0){
-    //error 
-    listen_sock = -1;
-    return Qfalse;
-  }
-  return Qnil;
-}
-
 static VALUE
 bossan_stop(VALUE self)
 {
@@ -1913,14 +1880,39 @@ bossan_access_log(VALUE self, VALUE args)
   return Qnil;
 }
 
-// Bossan::Server.run proc do
+// Bossan::Server.run('127.0.0.1', 8000) do |env|
 //   ...
 // end
 static VALUE
-bossan_run_loop(VALUE self, VALUE args)
+bossan_run_loop(VALUE self, VALUE args1, VALUE args2, VALUE args3)
 {
-  rack_app = args;
+  int ret;
+
+  if(listen_sock > 0){
+    rb_raise(rb_eException, "already set listen socket");
+  }
   
+  server_name = StringValuePtr(args1);
+  server_port = NUM2INT(args2);
+
+  long _port = NUM2INT(args2);
+
+  if (_port <= 0 || _port >= 65536) {
+    // out of range
+    rb_raise(rb_eArgError, "port number outside valid range");
+  }
+
+  server_port = (short)_port;
+
+  ret = inet_listen();
+
+  if(ret < 0){
+    //error
+    listen_sock = -1;
+  }
+
+  rack_app = args3;
+
   if(listen_sock <= 0){
     rb_raise(rb_eTypeError, "not found listen socket");
   }
@@ -2009,10 +2001,9 @@ Init_bossan_ext(void)
   i_keys = rb_intern("keys");
 
   server = rb_define_module_under(rb_define_module("Bossan"), "Server");
-    rb_gc_register_address(&server);
+  rb_gc_register_address(&server);
 
-  rb_define_module_function(server, "listen", bossan_listen, 2);
-  rb_define_module_function(server, "run", bossan_run_loop, 1);
+  rb_define_module_function(server, "run", bossan_run_loop, 3);
   rb_define_module_function(server, "stop", bossan_stop, 0);
 
   rb_define_module_function(server, "access_log", bossan_access_log, 1);

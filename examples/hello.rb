@@ -1,7 +1,6 @@
 require 'bossan'
 
-Bossan::Server.listen('127.0.0.1', 8000)
-Bossan::Server.run proc {|env|
+Bossan::Server.run('127.0.0.1', 8000, proc {|env|
   [
    200,          # Status code
    {             # Response headers
@@ -10,4 +9,4 @@ Bossan::Server.run proc {|env|
    },
    ['hi']        # Response body
   ]
-}
+})

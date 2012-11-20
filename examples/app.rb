@@ -7,6 +7,5 @@ class App < Sinatra::Base
   end
 end
 
-Bossan::Server.listen('127.0.0.1', 8000)
-Bossan::Server.run App
+Bossan::Server.run('127.0.0.1', 8000, App)
 
