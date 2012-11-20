@@ -18,13 +18,28 @@ Or install it yourself as:
 
 ## Requirements
 
-bossan requires Ruby 1.9.
+Bossan requires Ruby 1.9.x
 
-bossan supports linux only.
+Bossan supports Linux only.
 
 ## Usage
 
-TODO: Write usage instructions here
+simple rack app:
+
+``` ruby
+require 'bossan'
+
+Bossan.run('127.0.0.1', 8000, proc {|env|
+  [
+   200,          # Status code
+   {             # Response headers
+     'Content-Type' => 'text/html',
+     'Content-Length' => '2',
+   },
+   ['hi']        # Response body
+  ]
+})
+```
 
 ## Contributing
 
