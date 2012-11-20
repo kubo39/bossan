@@ -1880,7 +1880,7 @@ bossan_access_log(VALUE self, VALUE args)
   return Qnil;
 }
 
-// Bossan::Server.run('127.0.0.1', 8000) do |env|
+// Bossan.run('127.0.0.1', 8000) do |env|
 //   ...
 // end
 static VALUE
@@ -2000,7 +2000,7 @@ Init_bossan_ext(void)
   i_call = rb_intern("call");
   i_keys = rb_intern("keys");
 
-  server = rb_define_module_under(rb_define_module("Bossan"), "Server");
+  server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
 
   rb_define_module_function(server, "run", bossan_run_loop, 3);
