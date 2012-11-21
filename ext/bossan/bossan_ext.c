@@ -109,8 +109,6 @@ static int loop_done; // main loop flag
 static picoev_loop* main_loop; //main loop
 static VALUE rack_app = NULL; //rack app
 
-static VALUE watchdog = NULL; //watchdog
-
 static char *log_path = NULL; //access log path
 static int log_fd = -1; //access log
 static char *error_log_path = NULL; //error log path
@@ -647,24 +645,24 @@ write_headers(client_t *client, char *data, size_t datalen)
   return -1;
 }
   
-static inline int
-write_sendfile(int out_fd, int in_fd, size_t count)
-{
-  int size = (int)count;
+/* static inline int */
+/* write_sendfile(int out_fd, int in_fd, size_t count) */
+/* { */
+/*   int size = (int)count; */
   
-  if (size == 0) {
-    struct stat info;
-    if (fstat(in_fd, &info) == -1){
-      // TODO:
-      // raise exception from errno
-      /* rb_raise(); */
-      /* write_error_log(__FILE__, __LINE__);  */
-      return -1;
-    }
-    size = info.st_size - lseek(in_fd, 0, SEEK_CUR);
-  }
-  return sendfile(out_fd, in_fd, NULL, count);
-}
+/*   if (size == 0) { */
+/*     struct stat info; */
+/*     if (fstat(in_fd, &info) == -1){ */
+/*       // TODO: */
+/*       // raise exception from errno */
+/*       /\* rb_raise(); *\/ */
+/*       /\* write_error_log(__FILE__, __LINE__);  *\/ */
+/*       return -1; */
+/*     } */
+/*     size = info.st_size - lseek(in_fd, 0, SEEK_CUR); */
+/*   } */
+/*   return sendfile(out_fd, in_fd, NULL, count); */
+/* } */
 
 static inline void
 close_response(client_t *client)
@@ -1994,7 +1992,6 @@ Init_bossan_ext(void)
   rb_gc_register_address(&i_new);
 
   rb_gc_register_address(&rack_app); //rack app
-  rb_gc_register_address(&watchdog); //watchdog
 
   i_new = rb_intern("new");
   i_call = rb_intern("call");
