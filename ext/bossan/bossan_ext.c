@@ -132,10 +132,6 @@ typedef struct {
   size_t limit;
 } buffer;
 
-typedef struct {
-  VALUE filelike;
-} FileWrapperObject;
-
 typedef enum {
   FIELD,
   VAL,
