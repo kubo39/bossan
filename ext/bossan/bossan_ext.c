@@ -1720,7 +1720,6 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   }
 }
 
-// TODO: use accept4 in linux
 static void
 accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
@@ -1733,8 +1732,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     return;
   }else if ((events & PICOEV_READ) != 0) {
     socklen_t client_len = sizeof(client_addr);
-    client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
-    
+    client_fd = accept4(fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (client_fd != -1) {
 #ifdef DEBUG
       printf("accept fd %d \n", client_fd);
