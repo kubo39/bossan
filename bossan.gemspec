@@ -10,10 +10,7 @@ Gem::Specification.new do |gem|
   gem.summary       = gem.description
   gem.homepage      = "https://github.com/kubo39/bossan"
 
-  # gem.files         = `git ls-files`.split($/)
-  gem.files         = Dir["LICENSE.txt",
-                      "lib/**/*.rb",
-                      "ext/**/*"]
+  gem.files         = `git ls-files`.split($/)
   gem.extensions    = ["ext/bossan/extconf.rb"]
   gem.require_paths = ["lib", "ext"]
 end
