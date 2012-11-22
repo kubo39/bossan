@@ -1367,44 +1367,44 @@ inline void
 setup_static_env(char *name, int port)
 {
   version_val = rb_obj_freeze(rb_ary_new3(2, INT2FIX(1), INT2FIX(1)));
-  version_key = rb_str_new2("rack.version");
+  version_key = rb_obj_freeze(rb_str_new2("rack.version"));
   
-  scheme_val = rb_str_new2("http");
-  scheme_key = rb_str_new2("rack.url_scheme");
+  scheme_val = rb_obj_freeze(rb_str_new2("http"));
+  scheme_key = rb_obj_freeze(rb_str_new2("rack.url_scheme"));
 
   errors_val = rb_stderr;
-  errors_key = rb_str_new2("rack.errors");
+  errors_key = rb_obj_freeze(rb_str_new2("rack.errors"));
 
   multithread_val = Qfalse;
-  multithread_key = rb_str_new2("rack.multithread");
+  multithread_key = rb_obj_freeze(rb_str_new2("rack.multithread"));
 
   multiprocess_val = Qfalse; /* or Qtrue? I have no clue.. */ 
-  multiprocess_key = rb_str_new2("rack.multiprocess");
+  multiprocess_key = rb_obj_freeze(rb_str_new2("rack.multiprocess"));
 
   run_once_val = Qfalse;
-  run_once_key = rb_str_new2("rack.run_once");
+  run_once_key = rb_obj_freeze(rb_str_new2("rack.run_once"));
 
   script_val = rb_str_new2("");
-  script_key = rb_str_new2("SCRIPT_NAME");
+  script_key = rb_obj_freeze(rb_str_new2("SCRIPT_NAME"));
 
-  server_name_val = rb_str_new2(name);
-  server_name_key = rb_str_new2("SERVER_NAME");
+  server_name_val = rb_obj_freeze(rb_str_new2(name));
+  server_name_key = rb_obj_freeze(rb_str_new2("SERVER_NAME"));
   
   server_port_val = INT2NUM(port);
-  server_port_key = rb_str_new2("SERVER_PORT");
+  server_port_key = rb_obj_freeze(rb_str_new2("SERVER_PORT"));
 
-  server_protocol = rb_str_new2("SERVER_PROTOCOL");
-  path_info = rb_str_new2("PATH_INFO");
-  request_uri = rb_str_new2("REQUEST_URI");
-  query_string = rb_str_new2("QUERY_STRING");
-  http_fragment = rb_str_new2("HTTP_FRAGMENT");
-  request_method = rb_str_new2("REQUEST_METHOD");
-  rb_remote_addr = rb_str_new2("REMOTE_ADDR");
-  rb_remote_port = rb_str_new2("REMOTE_PORT");
-  rack_input = rb_str_new2("rack.input");
-  http_connection = rb_str_new2("HTTP_CONNECTION"); 
+  server_protocol = rb_obj_freeze(rb_str_new2("SERVER_PROTOCOL"));
+  path_info = rb_obj_freeze(rb_str_new2("PATH_INFO"));
+  request_uri = rb_obj_freeze(rb_str_new2("REQUEST_URI"));
+  query_string = rb_obj_freeze(rb_str_new2("QUERY_STRING"));
+  http_fragment = rb_obj_freeze(rb_str_new2("HTTP_FRAGMENT"));
+  request_method = rb_obj_freeze(rb_str_new2("REQUEST_METHOD"));
+  rb_remote_addr = rb_obj_freeze(rb_str_new2("REMOTE_ADDR"));
+  rb_remote_port = rb_obj_freeze(rb_str_new2("REMOTE_PORT"));
+  rack_input = rb_obj_freeze(rb_str_new2("rack.input"));
+  http_connection = rb_obj_freeze(rb_str_new2("HTTP_CONNECTION"));
 
-  http_user_agent = rb_str_new2("HTTP_USER_AGENT");
+  http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
 }
 
 static inline int
