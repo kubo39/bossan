@@ -99,6 +99,7 @@ static VALUE http_user_agent;
 static VALUE i_keys;
 static VALUE i_call;
 static VALUE i_new;
+static VALUE i_key;
 
 static char *server_name = "127.0.0.1";
 static short server_port = 8000;
@@ -577,7 +578,7 @@ write_headers(client_t *client, char *data, size_t datalen)
       if (TYPE(client->headers)!=T_HASH){
 	goto error;
       }
-      VALUE tmp = rb_funcall(client->headers, rb_intern("key?"), 1, object1);
+      VALUE tmp = rb_funcall(client->headers, i_key, 1, object1);
       if (tmp == Qfalse){
 	goto error;
       }
@@ -1984,12 +1985,14 @@ Init_bossan_ext(void)
   rb_gc_register_address(&i_keys);
   rb_gc_register_address(&i_call);
   rb_gc_register_address(&i_new);
+  rb_gc_register_address(&i_key);
 
   rb_gc_register_address(&rack_app); //rack app
 
   i_new = rb_intern("new");
   i_call = rb_intern("call");
   i_keys = rb_intern("keys");
+  i_key = rb_intern("key?");
 
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
