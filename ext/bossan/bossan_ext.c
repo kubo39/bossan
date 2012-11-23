@@ -1872,7 +1872,7 @@ bossan_access_log(VALUE self, VALUE args)
   return Qnil;
 }
 
-// Bossan.run('127.0.0.1', 8000) do |env|
+// Bossan.run('127.0.0.1', 8000, proc do |env|
 //   ...
 // end
 static VALUE
