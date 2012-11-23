@@ -1384,7 +1384,7 @@ setup_static_env(char *name, int port)
   run_once_val = Qfalse;
   run_once_key = rb_obj_freeze(rb_str_new2("rack.run_once"));
 
-  script_val = rb_str_new2("");
+  script_val = rb_obj_freeze(rb_str_new2(""));
   script_key = rb_obj_freeze(rb_str_new2("SCRIPT_NAME"));
 
   server_name_val = rb_obj_freeze(rb_str_new2(name));
