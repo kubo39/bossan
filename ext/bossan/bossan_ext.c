@@ -684,8 +684,6 @@ processs_write(client_t *client)
   iterator = client->response_iter;
 
   if(iterator != NULL){
-    /* Check_Type(iterator, T_ARRAY); */
-    /* assert(3 == RARRAY_LEN(iterator)); */
     if (TYPE(iterator) != T_ARRAY || RARRAY_LEN(iterator) != 3){
       return -1;
     }
@@ -696,9 +694,7 @@ processs_write(client_t *client)
       return -1;
     }
 
-
     int hlen = RARRAY_LEN(arr);
-    /* item = rb_ary_entry(arr, 0); */
 
     for(int i=0; i<hlen;i++){
       item = rb_ary_entry(arr, i);
@@ -717,7 +713,7 @@ processs_write(client_t *client)
       }
       //mark
       client->write_bytes += buflen;
-      //check write_bytes/content_length 
+      //check write_bytes/content_length
       if(client->content_length_set){
 	if(client->content_length <= client->write_bytes){
 	  // all done
