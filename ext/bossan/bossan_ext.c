@@ -753,7 +753,7 @@ static inline int
 start_response_write(client_t *client)
 {
   VALUE iterator;
-  VALUE arr;
+  VALUE dict;
   VALUE item;
   char *buf;
   ssize_t buflen;
@@ -766,24 +766,16 @@ start_response_write(client_t *client)
   }
   assert(3 == RARRAY_LEN(iterator));
 
-  arr = rb_ary_entry(iterator, 2);
+  dict = rb_ary_entry(iterator, 1);
 
-  if (TYPE(arr) != T_ARRAY){
+  if (TYPE(dict) != T_HASH){
     return -1;
   }
 
-  VALUE v_body = rb_ary_entry(arr, 0);
-  Check_Type(v_body, T_STRING);
-
-  if (v_body) {
-    buf = StringValuePtr(v_body);
-    buflen = RSTRING_LEN(v_body);
 #ifdef DEBUG
-    printf("start_response_write buflen %d \n", buflen);
+  printf("start_response_write buflen %d \n", buflen);
 #endif
-    return write_headers(client, buf, buflen);
-  }
-  return -1;
+  return write_headers(client, "", 0);
 }
 
 inline int
