@@ -695,29 +695,34 @@ processs_write(client_t *client)
     if (TYPE(arr) != T_ARRAY){
       return -1;
     }
-    
-    item = rb_ary_entry(arr, 0);
 
-    if(TYPE(item) != T_STRING) {
-      return -1;
-    }
 
-    buf = StringValuePtr(item);
-    buflen = RSTRING_LEN(item);
-    //write
-    bucket = new_write_bucket(client->fd, 1);
-    set2bucket(bucket, buf, buflen);
-    ret = writev_bucket(bucket);
-    if(ret <= 0){
-      return ret;
-    }
-    //mark
-    client->write_bytes += buflen;
-    //check write_bytes/content_length 
-    if(client->content_length_set){
-      if(client->content_length <= client->write_bytes){
-	// all done
-	//break;
+    int hlen = RARRAY_LEN(arr);
+    /* item = rb_ary_entry(arr, 0); */
+
+    for(int i=0; i<hlen;i++){
+      item = rb_ary_entry(arr, i);
+      if(TYPE(item) != T_STRING) {
+	return -1;
+      }
+
+      buf = StringValuePtr(item);
+      buflen = RSTRING_LEN(item);
+      //write
+      bucket = new_write_bucket(client->fd, 1);
+      set2bucket(bucket, buf, buflen);
+      ret = writev_bucket(bucket);
+      if(ret <= 0){
+	return ret;
+      }
+      //mark
+      client->write_bytes += buflen;
+      //check write_bytes/content_length 
+      if(client->content_length_set){
+	if(client->content_length <= client->write_bytes){
+	  // all done
+	  break;
+	}
       }
     }
     close_response(client);
