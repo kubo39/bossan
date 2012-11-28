@@ -94,6 +94,8 @@ static VALUE rb_remote_port;
 static VALUE rack_input;
 static VALUE http_connection;
 
+static VALUE empty_string;
+
 static VALUE http_user_agent;
 
 static VALUE i_keys;
@@ -523,7 +525,7 @@ writev_bucket(write_bucket *data)
 }
 
 static inline int
-write_headers(client_t *client, char *data, size_t datalen)
+write_headers(client_t *client)
 {
   if(client->header_done){
     return 1;
@@ -618,16 +620,10 @@ write_headers(client_t *client, char *data, size_t datalen)
   }
   set2bucket(bucket, CRLF, 2);
 
-  if(data){
-    set2bucket(bucket, data, datalen);
-  }
   client->bucket = bucket;
   int ret = writev_bucket(bucket);
   if(ret != 0){
     client->header_done = 1;
-    if(ret > 0 && data){
-      client->write_bytes += datalen;
-    }
     // clear
     free_write_bucket(bucket);
     client->bucket = NULL;
@@ -775,7 +771,7 @@ start_response_write(client_t *client)
 #ifdef DEBUG
   printf("start_response_write buflen %d \n", buflen);
 #endif
-  return write_headers(client, "", 0);
+  return write_headers(client);
 }
 
 inline int
@@ -784,7 +780,7 @@ response_start(client_t *client)
   int ret;
   enable_cork(client);
   if(client->status_code == 304){
-    return write_headers(client, NULL, 0);
+    return write_headers(client);
   }
   ret = start_response_write(client);
 #ifdef DEBUG
@@ -1974,6 +1970,9 @@ Init_bossan_ext(void)
   rb_gc_register_address(&http_connection);
 
   rb_gc_register_address(&http_user_agent);
+
+  empty_string = rb_obj_freeze(rb_str_new2(""));
+  rb_gc_register_address(&empty_string);
 
   rb_gc_register_address(&i_keys);
   rb_gc_register_address(&i_call);
