@@ -1335,7 +1335,6 @@ init_parser(client_t *cli, const char *name, const short port)
   object = rb_str_new2(cli->remote_addr);
   rb_hash_aset(cli->environ, rb_remote_addr, object);
 
-  /* object = INT2NUM(cli->remote_port); */
   char r_port[6];
   sprintf(r_port, "%d", cli->remote_port);
   object = rb_str_new2(r_port);
@@ -1380,13 +1379,12 @@ setup_static_env(char *name, int port)
   run_once_val = Qfalse;
   run_once_key = rb_obj_freeze(rb_str_new2("rack.run_once"));
 
-  script_val = rb_obj_freeze(rb_str_new2(""));
+  script_val = empty_string;
   script_key = rb_obj_freeze(rb_str_new2("SCRIPT_NAME"));
 
   server_name_val = rb_obj_freeze(rb_str_new2(name));
   server_name_key = rb_obj_freeze(rb_str_new2("SERVER_NAME"));
   
-  /* server_port_val = INT2NUM(port); */
   char vport[6];
   sprintf(vport, "%d", port);
   server_port_val = rb_obj_freeze(rb_str_new2(vport));
