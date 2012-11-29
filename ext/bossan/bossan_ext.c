@@ -565,7 +565,10 @@ write_headers(client_t *client)
     cache_time_update();
     add_header(bucket, "Date", 4, (char *)http_time, 29);
     if(client->keep_alive == 1){
-      add_header(bucket, "Connection", 10, "keep-alive", 10);
+      // Keep-Alive
+      add_header(bucket, "Connection", 10, "Keep-Alive", 10);
+    } else {
+      add_header(bucket, "Connection", 10, "close", 5);
     }
   }
 
