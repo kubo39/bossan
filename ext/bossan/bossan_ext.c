@@ -1332,7 +1332,10 @@ init_parser(client_t *cli, const char *name, const short port)
   object = rb_str_new2(cli->remote_addr);
   rb_hash_aset(cli->environ, rb_remote_addr, object);
 
-  object = INT2NUM(cli->remote_port);
+  /* object = INT2NUM(cli->remote_port); */
+  char r_port[6];
+  sprintf(r_port, "%d", cli->remote_port);
+  object = rb_str_new2(r_port);
   rb_hash_aset(cli->environ, rb_remote_port, object);
 
   http_parser_init(cli->http, HTTP_REQUEST);
@@ -1380,7 +1383,10 @@ setup_static_env(char *name, int port)
   server_name_val = rb_obj_freeze(rb_str_new2(name));
   server_name_key = rb_obj_freeze(rb_str_new2("SERVER_NAME"));
   
-  server_port_val = INT2NUM(port);
+  /* server_port_val = INT2NUM(port); */
+  char vport[6];
+  sprintf(vport, "%d", port);
+  server_port_val = rb_obj_freeze(rb_str_new2(vport));
   server_port_key = rb_obj_freeze(rb_str_new2("SERVER_PORT"));
 
   server_protocol = rb_obj_freeze(rb_str_new2("SERVER_PROTOCOL"));
