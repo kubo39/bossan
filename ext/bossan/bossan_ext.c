@@ -1332,6 +1332,9 @@ init_parser(client_t *cli, const char *name, const short port)
   rb_hash_aset(cli->environ, server_name_key, server_name_val);
   rb_hash_aset(cli->environ, server_port_key, server_port_val);
 
+  // query_string
+  rb_hash_aset(cli->environ, query_string, empty_string);
+
   object = rb_str_new2(cli->remote_addr);
   rb_hash_aset(cli->environ, rb_remote_addr, object);
 
