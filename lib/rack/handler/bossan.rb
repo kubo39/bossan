@@ -5,14 +5,23 @@ module Rack
   module Handler
     module Bossan
       DEFAULT_OPTIONS = {
-        "Host" => '0.0.0.0',
-        "Port" => 8080,
+        :Host => '127.0.0.1',
+        :Port => 8080,
         # :Verbose => false
       }
 
       def self.run(app, options = {})
         options = DEFAULT_OPTIONS.merge(options)
-        ::Bossan.run(options["Host"], options["Port"], app)
+        puts "* Listening on tcp://#{options[:Host]}:#{options[:Port]}"
+
+        ::Bossan.run(options[:Host], options[:Port], app)
+      end
+
+      def self.valid_options
+        {
+          "Host=HOST" => "Hostname to listen on (default: localhost)",
+          "Port=PORT" => "Port to listen on (default: 8080)",
+        }
       end
     end
     register :bossan, Bossan
