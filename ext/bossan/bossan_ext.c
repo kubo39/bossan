@@ -61,7 +61,7 @@
 
 #define SERVER "bossan/0.1"
 
-VALUE server; // Bossan::Server
+VALUE server; // Bossan
 
 static VALUE version_key;
 static VALUE version_val;
@@ -114,8 +114,8 @@ static VALUE rack_app = NULL; //rack app
 
 static char *log_path = NULL; //access log path
 static int log_fd = -1; //access log
-static char *error_log_path = NULL; //error log path
-static int err_log_fd = -1; //error log
+/* static char *error_log_path = NULL; //error log path */
+/* static int err_log_fd = -1; //error log */
 
 static int is_keep_alive = 0; //keep alive support
 int max_content_length = 1024 * 1024 * 16; //max_content_length
