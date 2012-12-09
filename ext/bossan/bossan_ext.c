@@ -102,6 +102,8 @@ static VALUE i_keys;
 static VALUE i_call;
 static VALUE i_new;
 static VALUE i_key;
+static VALUE i_each;
+static VALUE i_close;
 
 static char *server_name = "127.0.0.1";
 static short server_port = 8000;
@@ -668,11 +670,21 @@ close_response(client_t *client)
   client->response_closed = 1;
 }
 
+static VALUE
+collect_body(VALUE i, VALUE str, int argc, VALUE *argv)
+{
+  if(argc < 1) {
+    return Qnil;
+  }
+  rb_str_concat(str, argv[0]);
+  return Qnil;
+}
+
 static inline int
 processs_write(client_t *client)
 {
   VALUE iterator = NULL;
-  VALUE arr;
+  VALUE v_body;
   VALUE item;
   char *buf;
   ssize_t buflen;
@@ -687,37 +699,34 @@ processs_write(client_t *client)
       return -1;
     }
 
-    arr = rb_ary_entry(iterator, 2);
+    v_body = rb_ary_entry(iterator, 2);
 
-    if (TYPE(arr) != T_ARRAY){
+    if(!rb_respond_to(v_body, i_each)){
       return -1;
     }
 
-    int hlen = RARRAY_LEN(arr);
+    VALUE v_body_str = rb_str_new2("");
+    rb_block_call(v_body, i_each, 0, NULL, collect_body, v_body_str);
+    if(rb_respond_to(v_body, i_close)) {
+      rb_funcall(v_body, i_close, 0);
+    }
 
-    for(int i=0; i<hlen;i++){
-      item = rb_ary_entry(arr, i);
-      if(TYPE(item) != T_STRING) {
-	return -1;
-      }
+    buf = StringValuePtr(v_body_str);
+    buflen = RSTRING_LEN(v_body_str);
 
-      buf = StringValuePtr(item);
-      buflen = RSTRING_LEN(item);
-      //write
-      bucket = new_write_bucket(client->fd, 1);
-      set2bucket(bucket, buf, buflen);
-      ret = writev_bucket(bucket);
-      if(ret <= 0){
-	return ret;
-      }
-      //mark
-      client->write_bytes += buflen;
-      //check write_bytes/content_length
-      if(client->content_length_set){
-	if(client->content_length <= client->write_bytes){
-	  // all done
-	  break;
-	}
+    bucket = new_write_bucket(client->fd, 1);
+    set2bucket(bucket, buf, buflen);
+    ret = writev_bucket(bucket);
+    if(ret <= 0){
+      return ret;
+    }
+    //mark
+    client->write_bytes += buflen;
+    //check write_bytes/content_length
+    if(client->content_length_set){
+      if(client->content_length <= client->write_bytes){
+	// all done
+	/* break; */
       }
     }
     close_response(client);
@@ -1521,9 +1530,10 @@ process_rack_app(client_t *cli)
   
   VALUE* response_ary = RARRAY_PTR(cli->response);
 
-  if (TYPE(response_ary[0])!=T_FIXNUM ||
-      TYPE(response_ary[1])!=T_HASH   ||
-      TYPE(response_ary[2])!=T_ARRAY){
+  /* rb_p(cli->response); */
+
+  if (TYPE(response_ary[0]) != T_FIXNUM ||
+      TYPE(response_ary[1]) != T_HASH) {
     return 0;
   }
 
@@ -1988,6 +1998,8 @@ Init_bossan_ext(void)
   rb_gc_register_address(&i_call);
   rb_gc_register_address(&i_new);
   rb_gc_register_address(&i_key);
+  rb_gc_register_address(&i_each);
+  rb_gc_register_address(&i_close);
 
   rb_gc_register_address(&rack_app); //rack app
 
@@ -1995,6 +2007,8 @@ Init_bossan_ext(void)
   i_call = rb_intern("call");
   i_keys = rb_intern("keys");
   i_key = rb_intern("key?");
+  i_each = rb_intern("each");
+  i_close = rb_intern("close");
 
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
