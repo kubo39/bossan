@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 require 'rack/handler'
 require 'bossan'
 
@@ -6,7 +7,7 @@ module Rack
     module Bossan
       DEFAULT_OPTIONS = {
         :Host => '127.0.0.1',
-        :Port => 8080,
+        :Port => 8000,
         # :Verbose => false
       }
 
@@ -20,7 +21,7 @@ module Rack
       def self.valid_options
         {
           "Host=HOST" => "Hostname to listen on (default: localhost)",
-          "Port=PORT" => "Port to listen on (default: 8080)",
+          "Port=PORT" => "Port to listen on (default: 8000)",
         }
       end
     end
