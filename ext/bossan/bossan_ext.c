@@ -59,7 +59,7 @@
 
 #define MSG_413 ("HTTP/1.0 413 Request Entity Too Large\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n<html><head><title>Request Entity Too Large</title></head><body><p>Request Entity Too Large.</p></body></html>")
 
-#define SERVER "bossan/0.1"
+#define SERVER "bossan/0.1.4"
 
 VALUE server; // Bossan
 
@@ -109,6 +109,8 @@ static char *server_name = "127.0.0.1";
 static short server_port = 8000;
 
 static int listen_sock;  // listen socket
+
+static char *unix_sock_name = NULL;
 
 static int loop_done; // main loop flag
 static picoev_loop* main_loop; //main loop
@@ -1847,6 +1849,61 @@ inet_listen(void)
   return 1;
 }
 
+static inline int
+check_unix_sockpath(char *sock_name)
+{
+  if(!access(sock_name, F_OK)){
+    if(unlink(sock_name) < 0){
+      rb_raise(rb_eIOError, "failed to access sock_name\n");
+    }
+  }
+  return 1;
+}
+
+static inline int
+unix_listen(char *sock_name)
+{
+  int flag = 1;
+  struct sockaddr_un saddr;
+  mode_t old_umask;
+
+#ifdef DEBUG
+  printf("unix domain socket %s\n", sock_name);
+#endif
+  memset(&saddr, 0, sizeof(saddr));
+  check_unix_sockpath(sock_name);
+
+  if ((listen_sock = socket(AF_UNIX, SOCK_STREAM,0)) == -1) {
+    rb_raise(rb_eIOError, "server: failed to listen sock\n");
+  }
+
+  if (setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &flag,
+		 sizeof(int)) == -1) {
+    close(listen_sock);
+    rb_raise(rb_eIOError, "server: failed to set sockopt\n");
+  }
+
+  saddr.sun_family = PF_UNIX;
+  strcpy(saddr.sun_path, sock_name);
+
+  old_umask = umask(0);
+
+  if (bind(listen_sock, (struct sockaddr *)&saddr, sizeof(saddr)) == -1) {
+    close(listen_sock);
+    rb_raise(rb_eIOError, "server: failed to bind\n");
+  }
+  umask(old_umask);
+
+  // BACKLOG 1024
+  if (listen(listen_sock, BACKLOG) == -1) {
+    close(listen_sock);
+    rb_raise(rb_eIOError, "server: failed to set backlog\n");
+  }
+
+  unix_sock_name = sock_name;
+  return 1;
+}
+
 static void 
 sigint_cb(int signum)
 {
@@ -1882,38 +1939,43 @@ bossan_access_log(VALUE self, VALUE args)
   return Qnil;
 }
 
-// Bossan.run('127.0.0.1', 8000, proc do |env|
-//   ...
-// end
 static VALUE
-bossan_run_loop(VALUE self, VALUE args1, VALUE args2, VALUE args3)
+bossan_run_loop(int argc, VALUE *argv, VALUE self)
 {
   int ret;
+  VALUE args1, args2, args3;
+
+  rb_scan_args(argc, argv, "21", &args1, &args2, &args3);
 
   if(listen_sock > 0){
     rb_raise(rb_eException, "already set listen socket");
   }
-  
-  server_name = StringValuePtr(args1);
-  server_port = NUM2INT(args2);
 
-  long _port = NUM2INT(args2);
+  if (argc == 3){
+    server_name = StringValuePtr(args1);
+    server_port = NUM2INT(args2);
 
-  if (_port <= 0 || _port >= 65536) {
-    // out of range
-    rb_raise(rb_eArgError, "port number outside valid range");
+    long _port = NUM2INT(args2);
+
+    if (_port <= 0 || _port >= 65536) {
+      // out of range
+      rb_raise(rb_eArgError, "port number outside valid range");
+    }
+
+    server_port = (short)_port;
+
+    ret = inet_listen();
+    rack_app = args3;
+  } else {
+    Check_Type(args1, T_STRING);
+    ret = unix_listen(args1);
+    rack_app = args2;
   }
-
-  server_port = (short)_port;
-
-  ret = inet_listen();
 
   if(ret < 0){
     //error
     listen_sock = -1;
   }
-
-  rack_app = args3;
 
   if(listen_sock <= 0){
     rb_raise(rb_eTypeError, "not found listen socket");
@@ -2013,7 +2075,7 @@ Init_bossan_ext(void)
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
 
-  rb_define_module_function(server, "run", bossan_run_loop, 3);
+  rb_define_module_function(server, "run", bossan_run_loop, -1);
   rb_define_module_function(server, "stop", bossan_stop, 0);
 
   rb_define_module_function(server, "access_log", bossan_access_log, 1);
