@@ -1,6 +1,6 @@
 # Bossan
 
-Bossan is a high performance asynchronous rack web server.
+Bossan is a high performance asynchronous ruby's rack-compliant web server.
 
 ## Requirements
 
@@ -10,17 +10,15 @@ Bossan supports Linux only.
 
 ## Installation
 
-Add this line to your application's Gemfile:
+`gem install bossan`
 
-    gem 'bossan'
+Or from source:
 
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install bossan
+```
+git clone git://github.com/kubo39/bossan.git
+cd bossan
+rake install
+```
 
 ## Usage
 
