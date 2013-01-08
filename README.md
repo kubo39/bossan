@@ -1,5 +1,7 @@
 # Bossan
 
+[![Build Status](https://secure.travis-ci.org/kubo39/bossan.png?branch=master)](http://travis-ci.org/kubo39/bossan)
+
 Bossan is a high performance asynchronous ruby's rack-compliant web server.
 
 ## Requirements
