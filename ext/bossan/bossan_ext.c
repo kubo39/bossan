@@ -10,10 +10,10 @@
 #include <inttypes.h>
 #include <arpa/inet.h>
 #include <signal.h>
-#include <sys/sendfile.h>
+//#include <sys/sendfile.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/prctl.h>
+//#include <sys/prctl.h>
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -437,7 +437,7 @@ static inline void
 enable_cork(client_t *client)
 {
   int on = 1, r;
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_CORK, &on, sizeof(on));
+  r = setsockopt(client->fd, IPPROTO_TCP, /*TCP_CORK*/TCP_NOPUSH, &on, sizeof(on));
   assert(r == 0);
 }
 
@@ -1443,7 +1443,7 @@ disable_cork(client_t *client)
 {
   int off = 0;
   int on = 1, r;
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_CORK, &off, sizeof(off));
+  r = setsockopt(client->fd, IPPROTO_TCP, /*TCP_CORK*/TCP_NOPUSH, &off, sizeof(off));
   assert(r == 0);
 
   r = setsockopt(client->fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
