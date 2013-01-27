@@ -8,7 +8,7 @@ Bossan is a high performance asynchronous ruby's rack-compliant web server.
 
 Bossan requires Ruby 1.9.2 or later.
 
-Bossan supports Linux only.
+Bossan supports Linux, FreeBSD and Mac OS X.
 
 ## Installation
 
@@ -19,6 +19,7 @@ Or from source:
 ```
 git clone git://github.com/kubo39/bossan.git
 cd bossan
+rake build
 rake install
 ```
 
