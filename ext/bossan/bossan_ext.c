@@ -207,7 +207,7 @@ typedef struct {
   uint32_t total_size;
 } write_bucket;
 
- buffer *
+buffer *
 new_buffer(size_t buf_size, size_t limit)
 {
   buffer *buf;
@@ -223,8 +223,9 @@ new_buffer(size_t buf_size, size_t limit)
   return buf;
 }
 
- buffer_result
-write2buf(buffer *buf, const char *c, size_t  l) {
+buffer_result
+write2buf(buffer *buf, const char *c, size_t l)
+{
   size_t newl;
   char *newbuf;
   buffer_result ret = WRITE_OK;
@@ -250,14 +251,14 @@ write2buf(buffer *buf, const char *c, size_t  l) {
   return ret;
 }
 
- void
+void
 free_buffer(buffer *buf)
 {
   ruby_xfree(buf->buf);
   ruby_xfree(buf);
 }
 
- VALUE
+VALUE
 getRbString(buffer *buf)
 {
   VALUE o;
@@ -266,7 +267,7 @@ getRbString(buffer *buf)
   return o;
 }
 
- char *
+char *
 getString(buffer *buf)
 {
   buf->buf[buf->len] = '\0';
@@ -279,7 +280,7 @@ open_log_file(const char *path)
   return open(path, O_CREAT|O_APPEND|O_WRONLY, 0744);
 }
 
-static  int
+static int
 write_log(const char *new_path, int fd, const char *data, size_t len)
 {
   int openfd;
@@ -358,7 +359,7 @@ write_access_log(client_t *cli, int log_fd, const char *log_path)
   return 0;
 }
 
-static  int 
+static int
 blocking_write(client_t *client, char *data, size_t len)
 {
   size_t r = 0, send_len = len;
@@ -427,7 +428,7 @@ send_error_page(client_t *client)
   client->keep_alive = 0;
 }
 
-static  void
+static void
 extent_sndbuf(client_t *client)
 {
   int bufsize = 1024 * 1024 * 2, r;
@@ -435,7 +436,7 @@ extent_sndbuf(client_t *client)
   assert(r == 0);
 }
 
-static  void 
+static void
 enable_cork(client_t *client)
 {
   int on = 1, r;
@@ -447,7 +448,7 @@ enable_cork(client_t *client)
   assert(r == 0);
 }
 
-static  write_bucket *
+static write_bucket *
 new_write_bucket(int fd, int cnt)
 {
   write_bucket *bucket;
@@ -460,14 +461,14 @@ new_write_bucket(int fd, int cnt)
   return bucket;
 }
 
-static  void
+static void
 free_write_bucket(write_bucket *bucket)
 {
   ruby_xfree(bucket->iov);
   ruby_xfree(bucket);
 }
 
-static  void
+static void
 set2bucket(write_bucket *bucket, char *buf, size_t len)
 {
   bucket->iov[bucket->iov_cnt].iov_base = buf;
@@ -477,7 +478,7 @@ set2bucket(write_bucket *bucket, char *buf, size_t len)
   bucket->total_size += len;
 }
 
-static  void
+static void
 add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t vallen)
 {
   set2bucket(bucket, key, keylen);
@@ -486,7 +487,7 @@ add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t val
   set2bucket(bucket, CRLF, 2);
 }
 
-static  int 
+static int
 writev_bucket(write_bucket *data)
 {
   size_t w;
@@ -534,7 +535,7 @@ writev_bucket(write_bucket *data)
   return 1;
 }
 
-static  int
+static int
 write_headers(client_t *client)
 {
   if(client->header_done){
@@ -651,7 +652,7 @@ write_headers(client_t *client)
   return -1;
 }
   
-/* static  int */
+/* static int */
 /* write_sendfile(int out_fd, int in_fd, size_t count) */
 /* { */
 /*   int size = (int)count; */
@@ -670,7 +671,7 @@ write_headers(client_t *client)
 /*   return sendfile(out_fd, in_fd, NULL, count); */
 /* } */
 
-static  void
+static void
 close_response(client_t *client)
 {
   //send all response
@@ -688,7 +689,7 @@ collect_body(VALUE i, VALUE str, int argc, VALUE *argv)
   return Qnil;
 }
 
-static  int
+static int
 processs_write(client_t *client)
 {
   VALUE iterator = NULL;
@@ -742,7 +743,7 @@ processs_write(client_t *client)
   return 1;
 }
 
- int
+int
 process_body(client_t *client)
 {
   int ret;
@@ -765,7 +766,7 @@ process_body(client_t *client)
   return ret;
 }
 
-static  int
+static int
 start_response_write(client_t *client)
 {
   VALUE iterator;
@@ -794,7 +795,7 @@ start_response_write(client_t *client)
   return write_headers(client);
 }
 
- int
+int
 response_start(client_t *client)
 {
   int ret;
@@ -813,7 +814,7 @@ response_start(client_t *client)
   return ret;
 }
 
- request *
+request *
 new_request(void)
 {
   request *req = (request *)ruby_xmalloc(sizeof(request));
@@ -821,7 +822,7 @@ new_request(void)
   return req;
 }
 
- header *
+header *
 new_header(size_t fsize, size_t flimit, size_t vsize, size_t vlimit)
 {
   header *h;
@@ -831,13 +832,13 @@ new_header(size_t fsize, size_t flimit, size_t vsize, size_t vlimit)
   return h;
 }
 
- void
+void
 free_header(header *h)
 {
   ruby_xfree(h);
 }
 
- void
+void
 free_request(request *req)
 {
   uint32_t i;
@@ -870,7 +871,7 @@ free_request(request *req)
   ruby_xfree(req);
 }
 
-static  void
+static void
 key_upper(char *s, const char *key, size_t len)
 {
   int i = 0;
@@ -889,7 +890,7 @@ key_upper(char *s, const char *key, size_t len)
   }
 }
 
-static  int
+static int
 write_body2file(client_t *client, const char *buffer, size_t buffer_len)
 {
   FILE *tmp = (FILE *)client->body;
@@ -901,7 +902,7 @@ write_body2file(client_t *client, const char *buffer, size_t buffer_len)
   return client->body_readed;
 }
 
-static  int
+static int
 write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
 {
   printf("body2mem called\n");
@@ -914,7 +915,7 @@ write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
   return client->body_readed;
 }
 
-static  int
+static int
 write_body(client_t *cli, const char *buffer, size_t buffer_len)
 {
   return write_body2mem(cli, buffer, buffer_len);
@@ -962,7 +963,7 @@ check_header_type(const char *buf)
   return OTHER;
 }
 
-static  client_t *
+static client_t *
 get_client(http_parser *p)
 {
   return (client_t *)p->data;
@@ -1325,7 +1326,7 @@ static http_parser_settings settings =
   ,.on_message_complete = message_complete_cb
   };
 
- int
+int
 init_parser(client_t *cli, const char *name, const short port)
 {
   register VALUE object;
@@ -1366,19 +1367,19 @@ init_parser(client_t *cli, const char *name, const short port)
   return 0;
 }
 
- size_t
+size_t
 execute_parse(client_t *cli, const char *data, size_t len)
 {
   return http_parser_execute(cli->http, &settings, data, len);
 }
 
- int
+int
 parser_finish(client_t *cli)
 {
   return cli->complete;
 }
 
- void
+void
 setup_static_env(char *name, int port)
 {
   version_val = rb_obj_freeze(rb_ary_new3(2, INT2FIX(1), INT2FIX(1)));
@@ -1424,7 +1425,7 @@ setup_static_env(char *name, int port)
   http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
 }
 
-static  int
+static int
 setsig(int sig, void* handler)
 {
   struct sigaction context, ocontext;
@@ -1434,7 +1435,7 @@ setsig(int sig, void* handler)
   return sigaction(sig, &context, &ocontext);
 }
 
-static  void 
+static void
 setup_sock(int fd)
 {
   int on = 1, r;
@@ -1444,7 +1445,7 @@ setup_sock(int fd)
   assert(r == 0);
 }
 
-static  void 
+static void
 disable_cork(client_t *client)
 {
   int off = 0;
@@ -1459,7 +1460,7 @@ disable_cork(client_t *client)
   assert(r == 0);
 }
 
-static  client_t *
+static client_t *
 new_client_t(int client_fd, struct sockaddr_in client_addr){
   client_t *client;
     
@@ -1478,7 +1479,7 @@ new_client_t(int client_fd, struct sockaddr_in client_addr){
   return client;
 }
 
-static  void
+static void
 clean_cli(client_t *client)
 {
   write_access_log(client, log_fd, log_path); 
@@ -1493,7 +1494,7 @@ clean_cli(client_t *client)
   }
 }
 
-static  void 
+static void
 close_conn(client_t *cli, picoev_loop* loop)
 {
   if(!cli->keep_alive){
@@ -1524,7 +1525,7 @@ close_conn(client_t *cli, picoev_loop* loop)
   }
 }
 
-static  int
+static int
 process_rack_app(client_t *cli)
 {
   VALUE args = NULL;
@@ -1596,7 +1597,7 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   }
 }
 
-static  void
+static void
 call_rack_app(client_t *client, picoev_loop* loop)
 {
   int ret;
@@ -1631,7 +1632,7 @@ call_rack_app(client_t *client, picoev_loop* loop)
   }
 }
 
-static  void
+static void
 prepare_call_rack(client_t *client)
 {
   VALUE input = NULL, object = NULL, c = NULL;
@@ -1781,7 +1782,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   }
 }
 
-static  void
+static void
 setup_server_env(void)
 {
   setup_sock(listen_sock);
@@ -1790,7 +1791,7 @@ setup_server_env(void)
   setup_static_env(server_name, server_port);
 }
 
-static  int 
+static int
 inet_listen(void)
 {
   struct addrinfo hints, *servinfo, *p;
@@ -1859,7 +1860,7 @@ inet_listen(void)
   return 1;
 }
 
-static  int
+static int
 check_unix_sockpath(char *sock_name)
 {
   if(!access(sock_name, F_OK)){
@@ -1870,7 +1871,7 @@ check_unix_sockpath(char *sock_name)
   return 1;
 }
 
-static  int
+static int
 unix_listen(char *sock_name)
 {
   int flag = 1;
