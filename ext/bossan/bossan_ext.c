@@ -207,6 +207,7 @@ typedef struct {
   uint32_t total_size;
 } write_bucket;
 
+
 buffer *
 new_buffer(size_t buf_size, size_t limit)
 {
@@ -222,6 +223,7 @@ new_buffer(size_t buf_size, size_t limit)
   }
   return buf;
 }
+
 
 buffer_result
 write2buf(buffer *buf, const char *c, size_t l)
@@ -251,12 +253,14 @@ write2buf(buffer *buf, const char *c, size_t l)
   return ret;
 }
 
+
 void
 free_buffer(buffer *buf)
 {
   ruby_xfree(buf->buf);
   ruby_xfree(buf);
 }
+
 
 VALUE
 getRbString(buffer *buf)
@@ -267,6 +271,7 @@ getRbString(buffer *buf)
   return o;
 }
 
+
 char *
 getString(buffer *buf)
 {
@@ -274,11 +279,13 @@ getString(buffer *buf)
   return buf->buf;
 }
 
+
 int
 open_log_file(const char *path)
 {
   return open(path, O_CREAT|O_APPEND|O_WRONLY, 0744);
 }
+
 
 static int
 write_log(const char *new_path, int fd, const char *data, size_t len)
@@ -306,6 +313,7 @@ write_log(const char *new_path, int fd, const char *data, size_t len)
   flock(fd, LOCK_UN);
   return fd;
 }
+
 
 int 
 write_access_log(client_t *cli, int log_fd, const char *log_path)
@@ -359,6 +367,7 @@ write_access_log(client_t *cli, int log_fd, const char *log_path)
   return 0;
 }
 
+
 static int
 blocking_write(client_t *client, char *data, size_t len)
 {
@@ -398,6 +407,7 @@ blocking_write(client_t *client, char *data, size_t len)
   return 1;
 }
 
+
 void
 send_error_page(client_t *client)
 {
@@ -428,6 +438,7 @@ send_error_page(client_t *client)
   client->keep_alive = 0;
 }
 
+
 static void
 extent_sndbuf(client_t *client)
 {
@@ -435,6 +446,7 @@ extent_sndbuf(client_t *client)
   r = setsockopt(client->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
   assert(r == 0);
 }
+
 
 static void
 enable_cork(client_t *client)
@@ -447,6 +459,7 @@ enable_cork(client_t *client)
 #endif
   assert(r == 0);
 }
+
 
 static write_bucket *
 new_write_bucket(int fd, int cnt)
@@ -461,12 +474,14 @@ new_write_bucket(int fd, int cnt)
   return bucket;
 }
 
+
 static void
 free_write_bucket(write_bucket *bucket)
 {
   ruby_xfree(bucket->iov);
   ruby_xfree(bucket);
 }
+
 
 static void
 set2bucket(write_bucket *bucket, char *buf, size_t len)
@@ -478,6 +493,7 @@ set2bucket(write_bucket *bucket, char *buf, size_t len)
   bucket->total_size += len;
 }
 
+
 static void
 add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t vallen)
 {
@@ -486,6 +502,7 @@ add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t val
   set2bucket(bucket, val, vallen);
   set2bucket(bucket, CRLF, 2);
 }
+
 
 static int
 writev_bucket(write_bucket *data)
@@ -534,6 +551,7 @@ writev_bucket(write_bucket *data)
   }
   return 1;
 }
+
 
 static int
 write_headers(client_t *client)
@@ -652,6 +670,7 @@ write_headers(client_t *client)
   return -1;
 }
   
+
 /* static int */
 /* write_sendfile(int out_fd, int in_fd, size_t count) */
 /* { */
@@ -671,6 +690,7 @@ write_headers(client_t *client)
 /*   return sendfile(out_fd, in_fd, NULL, count); */
 /* } */
 
+
 static void
 close_response(client_t *client)
 {
@@ -678,6 +698,7 @@ close_response(client_t *client)
   //closing reponse object
   client->response_closed = 1;
 }
+
 
 static VALUE
 collect_body(VALUE i, VALUE str, int argc, VALUE *argv)
@@ -688,6 +709,7 @@ collect_body(VALUE i, VALUE str, int argc, VALUE *argv)
   rb_str_concat(str, argv[0]);
   return Qnil;
 }
+
 
 static int
 processs_write(client_t *client)
@@ -743,6 +765,7 @@ processs_write(client_t *client)
   return 1;
 }
 
+
 int
 process_body(client_t *client)
 {
@@ -765,6 +788,7 @@ process_body(client_t *client)
   ret = processs_write(client);
   return ret;
 }
+
 
 static int
 start_response_write(client_t *client)
@@ -795,6 +819,7 @@ start_response_write(client_t *client)
   return write_headers(client);
 }
 
+
 int
 response_start(client_t *client)
 {
@@ -814,6 +839,7 @@ response_start(client_t *client)
   return ret;
 }
 
+
 request *
 new_request(void)
 {
@@ -821,6 +847,7 @@ new_request(void)
   memset(req, 0, sizeof(request));
   return req;
 }
+
 
 header *
 new_header(size_t fsize, size_t flimit, size_t vsize, size_t vlimit)
@@ -832,11 +859,13 @@ new_header(size_t fsize, size_t flimit, size_t vsize, size_t vlimit)
   return h;
 }
 
+
 void
 free_header(header *h)
 {
   ruby_xfree(h);
 }
+
 
 void
 free_request(request *req)
@@ -871,6 +900,7 @@ free_request(request *req)
   ruby_xfree(req);
 }
 
+
 static void
 key_upper(char *s, const char *key, size_t len)
 {
@@ -890,6 +920,7 @@ key_upper(char *s, const char *key, size_t len)
   }
 }
 
+
 static int
 write_body2file(client_t *client, const char *buffer, size_t buffer_len)
 {
@@ -901,6 +932,7 @@ write_body2file(client_t *client, const char *buffer, size_t buffer_len)
 #endif
   return client->body_readed;
 }
+
 
 static int
 write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
@@ -915,17 +947,20 @@ write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
   return client->body_readed;
 }
 
+
 static int
 write_body(client_t *cli, const char *buffer, size_t buffer_len)
 {
   return write_body2mem(cli, buffer, buffer_len);
 }
 
+
 typedef enum{
   CONTENT_TYPE,
   CONTENT_LENGTH,
   OTHER
 } rack_header_type;
+
 
 static  rack_header_type
 check_header_type(const char *buf)
@@ -963,17 +998,20 @@ check_header_type(const char *buf)
   return OTHER;
 }
 
+
 static client_t *
 get_client(http_parser *p)
 {
   return (client_t *)p->data;
 }
 
+
 int
 message_begin_cb(http_parser *p)
 {
   return 0;
 }
+
 
 int
 header_field_cb (http_parser *p, const char *buf, size_t len, char partial)
@@ -1021,6 +1059,7 @@ header_field_cb (http_parser *p, const char *buf, size_t len, char partial)
   return 0;
 }
 
+
 int
 header_value_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
@@ -1050,6 +1089,7 @@ header_value_cb (http_parser *p, const char *buf, size_t len, char partial)
   return 0;
 }
 
+
 int
 request_path_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
@@ -1075,6 +1115,7 @@ request_path_cb (http_parser *p, const char *buf, size_t len, char partial)
   }
   return 0;
 }
+
 
 int
 request_uri_cb (http_parser *p, const char *buf, size_t len, char partial)
@@ -1102,6 +1143,7 @@ request_uri_cb (http_parser *p, const char *buf, size_t len, char partial)
   return 0;
 }
 
+
 int
 query_string_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
@@ -1127,6 +1169,7 @@ query_string_cb (http_parser *p, const char *buf, size_t len, char partial)
   }
   return 0;
 }
+
 
 int
 fragment_cb (http_parser *p, const char *buf, size_t len, char partial)
@@ -1154,6 +1197,7 @@ fragment_cb (http_parser *p, const char *buf, size_t len, char partial)
   return 0;
 }
 
+
 int
 body_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
@@ -1180,6 +1224,7 @@ body_cb (http_parser *p, const char *buf, size_t len, char partial)
   write_body(client, buf, len);
   return 0;
 }
+
 
 int
 headers_complete_cb(http_parser *p)
@@ -1305,6 +1350,7 @@ headers_complete_cb(http_parser *p)
   return 0;
 }
 
+
 int
 message_complete_cb (http_parser *p)
 {
@@ -1312,6 +1358,7 @@ message_complete_cb (http_parser *p)
   client->complete = 1;
   return 0;
 }
+
 
 static http_parser_settings settings =
   {.on_message_begin = message_begin_cb
@@ -1325,6 +1372,7 @@ static http_parser_settings settings =
   ,.on_headers_complete = headers_complete_cb
   ,.on_message_complete = message_complete_cb
   };
+
 
 int
 init_parser(client_t *cli, const char *name, const short port)
@@ -1367,17 +1415,20 @@ init_parser(client_t *cli, const char *name, const short port)
   return 0;
 }
 
+
 size_t
 execute_parse(client_t *cli, const char *data, size_t len)
 {
   return http_parser_execute(cli->http, &settings, data, len);
 }
 
+
 int
 parser_finish(client_t *cli)
 {
   return cli->complete;
 }
+
 
 void
 setup_static_env(char *name, int port)
@@ -1406,7 +1457,7 @@ setup_static_env(char *name, int port)
   server_name_val = rb_obj_freeze(rb_str_new2(name));
   server_name_key = rb_obj_freeze(rb_str_new2("SERVER_NAME"));
   
-  char vport[6];
+  char vport[7];
   sprintf(vport, "%d", port);
   server_port_val = rb_obj_freeze(rb_str_new2(vport));
   server_port_key = rb_obj_freeze(rb_str_new2("SERVER_PORT"));
@@ -1425,6 +1476,7 @@ setup_static_env(char *name, int port)
   http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
 }
 
+
 static int
 setsig(int sig, void* handler)
 {
@@ -1435,6 +1487,7 @@ setsig(int sig, void* handler)
   return sigaction(sig, &context, &ocontext);
 }
 
+
 static void
 setup_sock(int fd)
 {
@@ -1444,6 +1497,7 @@ setup_sock(int fd)
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
 }
+
 
 static void
 disable_cork(client_t *client)
@@ -1459,6 +1513,7 @@ disable_cork(client_t *client)
   r = setsockopt(client->fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
   assert(r == 0);
 }
+
 
 static client_t *
 new_client_t(int client_fd, struct sockaddr_in client_addr){
@@ -1479,6 +1534,7 @@ new_client_t(int client_fd, struct sockaddr_in client_addr){
   return client;
 }
 
+
 static void
 clean_cli(client_t *client)
 {
@@ -1493,6 +1549,7 @@ clean_cli(client_t *client)
     client->http = NULL;
   }
 }
+
 
 static void
 close_conn(client_t *cli, picoev_loop* loop)
@@ -1524,6 +1581,7 @@ close_conn(client_t *cli, picoev_loop* loop)
     init_parser(cli, server_name, server_port);
   }
 }
+
 
 static int
 process_rack_app(client_t *cli)
@@ -1568,6 +1626,7 @@ process_rack_app(client_t *cli)
   return 1;
 }
 
+
 static void
 w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
@@ -1596,6 +1655,7 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     }
   }
 }
+
 
 static void
 call_rack_app(client_t *client, picoev_loop* loop)
@@ -1632,6 +1692,7 @@ call_rack_app(client_t *client, picoev_loop* loop)
   }
 }
 
+
 static void
 prepare_call_rack(client_t *client)
 {
@@ -1658,6 +1719,7 @@ prepare_call_rack(client_t *client)
     }
   }
 }
+
 
 static void
 r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
@@ -1742,6 +1804,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   }
 }
 
+
 static void
 accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
@@ -1782,6 +1845,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   }
 }
 
+
 static void
 setup_server_env(void)
 {
@@ -1790,6 +1854,7 @@ setup_server_env(void)
 
   setup_static_env(server_name, server_port);
 }
+
 
 static int
 inet_listen(void)
@@ -1860,6 +1925,7 @@ inet_listen(void)
   return 1;
 }
 
+
 static int
 check_unix_sockpath(char *sock_name)
 {
@@ -1870,6 +1936,7 @@ check_unix_sockpath(char *sock_name)
   }
   return 1;
 }
+
 
 static int
 unix_listen(char *sock_name)
@@ -1915,6 +1982,7 @@ unix_listen(char *sock_name)
   return 1;
 }
 
+
 static void 
 sigint_cb(int signum)
 {
@@ -1922,10 +1990,12 @@ sigint_cb(int signum)
   /* rb_interrupt(); */
 }
 
+
 static void 
 sigpipe_cb(int signum)
 {
 }
+
 
 static VALUE
 bossan_stop(VALUE self)
@@ -1933,6 +2003,7 @@ bossan_stop(VALUE self)
   loop_done = 0;
   return Qnil;
 }
+
 
 static VALUE
 bossan_access_log(VALUE self, VALUE args)
@@ -1942,6 +2013,17 @@ bossan_access_log(VALUE self, VALUE args)
   if(log_fd > 0){
     close(log_fd);
   }
+
+  if(!strcasecmp(log_path, "stdout")){
+    log_fd = 1;
+    return Qnil;
+  }
+
+  if(!strcasecmp(log_path, "stderr")){
+    log_fd = 2;
+    return Qnil;
+  }
+
   log_fd = open_log_file(log_path);
 
   if(log_fd < 0){
@@ -1949,6 +2031,7 @@ bossan_access_log(VALUE self, VALUE args)
   }
   return Qnil;
 }
+
 
 static VALUE
 bossan_run_loop(int argc, VALUE *argv, VALUE self)
@@ -2015,6 +2098,7 @@ bossan_run_loop(int argc, VALUE *argv, VALUE self)
   return Qnil;
 }
 
+
 VALUE 
 bossan_set_max_content_length(VALUE self, VALUE args)
 {
@@ -2022,11 +2106,13 @@ bossan_set_max_content_length(VALUE self, VALUE args)
   return Qnil;
 }
 
+
 VALUE 
 bossan_get_max_content_length(VALUE self)
 {
   return INT2NUM(max_content_length);
 }
+
 
 void
 Init_bossan_ext(void)
