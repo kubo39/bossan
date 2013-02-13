@@ -1404,7 +1404,7 @@ init_parser(client_t *cli, const char *name, const short port)
   object = rb_str_new2(cli->remote_addr);
   rb_hash_aset(cli->environ, rb_remote_addr, object);
 
-  char r_port[6];
+  char r_port[7];
   sprintf(r_port, "%d", cli->remote_port);
   object = rb_str_new2(r_port);
   rb_hash_aset(cli->environ, rb_remote_port, object);
@@ -1817,8 +1817,11 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     return;
   }else if ((events & PICOEV_READ) != 0) {
     socklen_t client_len = sizeof(client_addr);
-    //client_fd = accept4(fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+#ifdef linux
+    client_fd = accept4(fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+#else
     client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
+#endif
     if (client_fd != -1) {
 #ifdef DEBUG
       printf("accept fd %d \n", client_fd);
