@@ -117,7 +117,7 @@ static char *unix_sock_name = NULL;
 
 static int loop_done; // main loop flag
 static picoev_loop* main_loop; //main loop
-static VALUE rack_app = NULL; //rack app
+static VALUE rack_app; //rack app
 
 static char *log_path = NULL; //access log path
 static int log_fd = -1; //access log
@@ -572,8 +572,8 @@ write_headers(client_t *client)
   write_bucket *bucket;
   uint32_t i = 0, hlen = 0;
 
-  VALUE arr = NULL;
-  VALUE object = NULL;
+  VALUE arr;
+  VALUE object;
   char *name = NULL;
   ssize_t namelen;
   char *value = NULL;
@@ -724,7 +724,7 @@ collect_body(VALUE i, VALUE str, int argc, VALUE *argv)
 static int
 processs_write(client_t *client)
 {
-  VALUE iterator = NULL;
+  VALUE iterator;
   VALUE v_body;
   VALUE item;
   char *buf;
@@ -1597,7 +1597,7 @@ close_conn(client_t *cli, picoev_loop* loop)
 static int
 process_rack_app(client_t *cli)
 {
-  VALUE args = NULL;
+  VALUE args;
   char *status;
 
   args = cli->environ;
@@ -1707,7 +1707,7 @@ call_rack_app(client_t *client, picoev_loop* loop)
 static void
 prepare_call_rack(client_t *client)
 {
-  VALUE input = NULL, object = NULL, c = NULL;
+  VALUE input, object, c;
   char *val;
 
   object = rb_str_new2("");
