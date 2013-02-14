@@ -108,7 +108,7 @@ static VALUE i_key;
 static VALUE i_each;
 static VALUE i_close;
 
-static char *server_name = "127.0.0.1";
+static const char *server_name = "127.0.0.1";
 static short server_port = 8000;
 
 static int listen_sock;  // listen socket
@@ -517,7 +517,7 @@ add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t val
 static int
 writev_bucket(write_bucket *data)
 {
-  size_t w;
+  ssize_t w;
   int i = 0;
   w = writev(data->fd, data->iov, data->iov_cnt);
   if(w == -1){
@@ -728,14 +728,14 @@ processs_write(client_t *client)
   VALUE v_body;
   VALUE item;
   char *buf;
-  ssize_t buflen;
+  size_t buflen;
   write_bucket *bucket;
   int ret;
 
   // body
   iterator = client->response_iter;
 
-  if(iterator != NULL){
+  if(iterator != Qnil){
     if (TYPE(iterator) != T_ARRAY || RARRAY_LEN(iterator) != 3){
       return -1;
     }
@@ -1577,13 +1577,13 @@ close_conn(client_t *cli, picoev_loop* loop)
     clean_cli(cli);
     disable_cork(cli);
     cli->keep_alive = 1;
-    cli->environ = NULL;
-    cli->http_status = NULL;
-    cli->headers = NULL;
+    cli->environ = Qnil;
+    cli->http_status = Qnil;
+    cli->headers = Qnil;
     cli->header_done = 0;
     cli->body_type = BODY_TYPE_NONE;
     cli->status_code = 0;
-    cli->response = NULL;
+    cli->response = Qnil;
     cli->content_length_set = 0;
     cli->content_length = 0;
     cli->write_bytes = 0;
@@ -2076,7 +2076,7 @@ bossan_run_loop(int argc, VALUE *argv, VALUE self)
     rack_app = args3;
   } else {
     Check_Type(args1, T_STRING);
-    ret = unix_listen(args1);
+    ret = unix_listen(StringValuePtr(args1));
     rack_app = args2;
   }
 
