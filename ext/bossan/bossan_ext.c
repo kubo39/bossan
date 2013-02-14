@@ -99,6 +99,7 @@ static VALUE http_connection;
 static VALUE empty_string;
 
 static VALUE http_user_agent;
+static VALUE http_referer;
 
 static VALUE i_keys;
 static VALUE i_call;
@@ -321,39 +322,47 @@ write_access_log(client_t *cli, int log_fd, const char *log_path)
   char buf[1024*4];
   if(log_fd > 0){
     VALUE obj;
-    char *method, *path, *version, *ua;
+    char *method, *path, *version, *ua, *referer;
         
     obj = rb_hash_aref(cli->environ, request_method);
-    if(obj){
+    if(obj != Qnil){
       method = StringValuePtr(obj);
     }else{
       method = "-";
     }
                 
     obj = rb_hash_aref(cli->environ, path_info);
-    if(obj){
+    if(obj != Qnil){
       path = StringValuePtr(obj);
     }else{
       path = "-";
     }
     
     obj = rb_hash_aref(cli->environ, server_protocol);
-    if(obj){
+    if(obj != Qnil){
       version = StringValuePtr(obj);
     }else{
       version = "-";
     }
 
     obj = rb_hash_aref(cli->environ, http_user_agent);
-    if(obj){
+    if(obj != Qnil){
       ua = StringValuePtr(obj);
     }else{
       ua = "-";
     }
+
+    obj = rb_hash_aref(cli->environ, http_referer);
+    if(obj != Qnil){
+      referer = StringValuePtr(obj);
+    }else{
+      referer = "-";
+    }
+
     //update
     cache_time_update();
         
-    sprintf(buf, "%s - - [%s] \"%s %s %s\" %d %d \"-\" \"%s\"\n", 
+    sprintf(buf, "%s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"\n",
 	    cli->remote_addr,
 	    http_log_time,
 	    method,
@@ -361,6 +370,7 @@ write_access_log(client_t *cli, int log_fd, const char *log_path)
 	    version,
 	    cli->status_code,
 	    cli->write_bytes,
+	    referer,
 	    ua);
     return write_log(log_path, log_fd, buf, strlen(buf));
   }
@@ -1474,6 +1484,7 @@ setup_static_env(char *name, int port)
   http_connection = rb_obj_freeze(rb_str_new2("HTTP_CONNECTION"));
 
   http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
+  http_referer = rb_obj_freeze(rb_str_new2("HTTP_REFERER"));
 }
 
 
@@ -1707,7 +1718,7 @@ prepare_call_rack(client_t *client)
   if(is_keep_alive){
     //support keep-alive
     c = rb_hash_aref(client->environ, http_connection);
-    if(c){
+    if(c != Qnil){
       val = StringValuePtr(c);
       if(!strcasecmp(val, "keep-alive")){
 	client->keep_alive = 1;
@@ -2152,6 +2163,7 @@ Init_bossan_ext(void)
   rb_gc_register_address(&http_connection);
 
   rb_gc_register_address(&http_user_agent);
+  rb_gc_register_address(&http_referer);
 
   empty_string = rb_obj_freeze(rb_str_new2(""));
   rb_gc_register_address(&empty_string);
