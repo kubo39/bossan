@@ -1554,6 +1554,12 @@ clean_cli(client_t *client)
     free_request(client->req);
     client->req = NULL;
   }
+#ifdef DEBUG
+  printf("close environ %p \n", client->environ);
+#endif
+
+  // force clear
+  client->environ = rb_hash_new();
 
   if(client->http != NULL){
     ruby_xfree(client->http);
