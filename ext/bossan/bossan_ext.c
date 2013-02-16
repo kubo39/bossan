@@ -393,19 +393,26 @@ blocking_write(client_t *client, char *data, size_t len)
       break;
     case -1:
       if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
-	//printf("EAGAIN \n");
 	usleep(500); //TODO try again later
 	break;
       }else{
 	// fatal error
 	//close
-	rb_raise(rb_eException, "fatal error");
-        
-	// TODO:
-	// raise exception from errno
-	/* rb_raise(rb_eIOError); */
-	/* write_error_log(__FILE__, __LINE__); */
-	client->keep_alive = 0;
+
+	if(errno == EPIPE){
+	  // Connection reset by peer
+	  client->keep_alive = 0;
+	  client->status_code = 500;
+	  client->header_done = 1;
+	  client->response_closed = 1;
+
+	}else{
+	  // TODO:
+	  // raise exception from errno
+
+	  /* write_error_log(__FILE__, __LINE__); */
+	  client->keep_alive = 0;
+	}
 	return -1;
       }
     default:
@@ -446,6 +453,8 @@ send_error_page(client_t *client)
     break;
   }
   client->keep_alive = 0;
+  client->header_done = 1;
+  client->response_closed = 1;
 }
 
 
