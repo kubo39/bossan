@@ -536,7 +536,6 @@ writev_bucket(write_bucket *data)
       return 0;
     }else{
       //ERROR
-      rb_raise(rb_eException, "fatal error");
 
       // TODO:
       // raise exception from errno
@@ -1036,9 +1035,9 @@ int
 header_field_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   uint32_t i;
-  register header *h;
+  header *h;
   client_t *client = get_client(p);
-  register request *req = client->req;
+  request *req = client->req;
   char temp[len];
   
   buffer_result ret = MEMORY_ERROR;
@@ -1083,9 +1082,9 @@ int
 header_value_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   uint32_t i;
-  register header *h;
+  header *h;
   client_t *client = get_client(p);
-  register request *req = client->req;
+  request *req = client->req;
     
   buffer_result ret = MEMORY_ERROR;
   i = req->num_headers;
@@ -1113,7 +1112,7 @@ int
 request_path_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   client_t *client = get_client(p);
-  register request *req = client->req;
+  request *req = client->req;
   buffer_result ret = MEMORY_ERROR;
   
   if(req->path){
@@ -1167,7 +1166,7 @@ int
 query_string_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   client_t *client = get_client(p);
-  register request *req = client->req;
+  request *req = client->req;
   buffer_result ret = MEMORY_ERROR;
 
   if(req->query_string){
@@ -1248,12 +1247,12 @@ body_cb (http_parser *p, const char *buf, size_t len, char partial)
 int
 headers_complete_cb(http_parser *p)
 {
-  register VALUE obj, key;
+  VALUE obj, key;
   client_t *client = get_client(p);
   request *req = client->req;
-  register VALUE env = client->environ;
-  register uint32_t i = 0; 
-  register header *h;
+  VALUE env = client->environ;
+  uint32_t i = 0;
+  header *h;
   
   if(max_content_length < p->content_length){
     client->bad_request_code = 413;
@@ -1396,17 +1395,14 @@ static http_parser_settings settings =
 int
 init_parser(client_t *cli, const char *name, const short port)
 {
-  register VALUE object;
+  VALUE object;
+  char r_port[7];
 
   cli->http = (http_parser*)ruby_xmalloc(sizeof(http_parser));
   memset(cli->http, 0, sizeof(http_parser));
     
   cli->environ = rb_hash_new();
 
-  if (cli->environ == NULL) {
-    return -1;
-  }
-  
   rb_hash_aset(cli->environ, version_key, version_val);
   rb_hash_aset(cli->environ, scheme_key, scheme_val);
   rb_hash_aset(cli->environ, errors_key, errors_val);
@@ -1423,7 +1419,6 @@ init_parser(client_t *cli, const char *name, const short port)
   object = rb_str_new2(cli->remote_addr);
   rb_hash_aset(cli->environ, rb_remote_addr, object);
 
-  char r_port[7];
   sprintf(r_port, "%d", cli->remote_port);
   object = rb_str_new2(r_port);
   rb_hash_aset(cli->environ, rb_remote_port, object);
@@ -1452,6 +1447,8 @@ parser_finish(client_t *cli)
 void
 setup_static_env(char *name, int port)
 {
+  char vport[7];
+
   version_val = rb_obj_freeze(rb_ary_new3(2, INT2FIX(1), INT2FIX(1)));
   version_key = rb_obj_freeze(rb_str_new2("rack.version"));
   
@@ -1476,7 +1473,6 @@ setup_static_env(char *name, int port)
   server_name_val = rb_obj_freeze(rb_str_new2(name));
   server_name_key = rb_obj_freeze(rb_str_new2("SERVER_NAME"));
   
-  char vport[7];
   sprintf(vport, "%d", port);
   server_port_val = rb_obj_freeze(rb_str_new2(vport));
   server_port_key = rb_obj_freeze(rb_str_new2("SERVER_PORT"));
