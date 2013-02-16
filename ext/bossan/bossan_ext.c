@@ -1727,7 +1727,7 @@ prepare_call_rack(client_t *client)
 
   object = rb_str_new2("");
   input = rb_funcall(StringIO, i_new, 1, object);
-  rb_hash_aset((VALUE)client->environ, rack_input, input);
+  rb_hash_aset(client->environ, rack_input, input);
   client->body = object;
 
   if(is_keep_alive){
