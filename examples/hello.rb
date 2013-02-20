@@ -1,12 +1,13 @@
 require 'bossan'
 
 Bossan.run('127.0.0.1', 8000, proc {|env|
+  body = 'hello, world!'
   [
    200,          # Status code
    {             # Response headers
      'Content-Type' => 'text/html',
-     'Content-Length' => '13',
+     'Content-Length' => body.size.to_s,
    },
-   ['hello, world!']        # Response body
+   [body]        # Response body
   ]
 })
