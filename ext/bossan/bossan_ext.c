@@ -955,7 +955,7 @@ write_body2file(client_t *client, const char *buffer, size_t buffer_len)
 static int
 write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
 {
-  printf("body2mem called\n");
+  /* printf("body2mem called\n"); */
   VALUE obj = (VALUE)client->body;
   rb_str_concat(obj, rb_str_new(buffer, buffer_len));
   client->body_readed += buffer_len;
