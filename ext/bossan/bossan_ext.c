@@ -1706,6 +1706,8 @@ call_rack_app(client_t *client, picoev_loop* loop)
 #ifdef DEBUG
     printf("set write callback %d \n", ret);
 #endif
+    //clear event
+    picoev_del(loop, client->fd);
     picoev_add(loop, client->fd, PICOEV_WRITE, WRITE_TIMEOUT_SECS, w_callback, (void *)client);
     return;
   default:
