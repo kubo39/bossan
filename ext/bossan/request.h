@@ -38,4 +38,17 @@ typedef struct {
   field_type last_header_element;   
 } request;
 
+
+request *
+new_request(void);
+
+header *
+new_header(size_t fsize, size_t flimit, size_t vsize, size_t vlimit);
+
+void
+free_header(header *h);
+
+void
+free_request(request *req);
+
 #endif
