@@ -21,10 +21,11 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
-#include "buffer.h"
 #include "time_cache.h"
 #include "http_parser.h"
 #include "picoev.h"
+#include "buffer.h"
+#include "client.h"
 
 #define MAX_FDS 1024 * 8
 #define ACCEPT_TIMEOUT_SECS 1
@@ -37,14 +38,6 @@
 #define INPUT_BUF_SIZE 1024 * 8
 
 #define LIMIT_SIZE 1024 * 512
-
-#define LIMIT_PATH 1024 * 4
-#define LIMIT_FRAGMENT 1024
-#define LIMIT_URI 1024 * 4
-#define LIMIT_QUERY_STRING 1024 * 8
-
-#define LIMIT_REQUEST_FIELDS 30 
-#define LIMIT_REQUEST_FIELD_SIZE 1024 * 8 
 
 #define CRLF "\r\n"
 #define DELIM ": "
@@ -125,61 +118,6 @@ int max_content_length = 1024 * 1024 * 16; //max_content_length
 
 static VALUE StringIO;
 
-typedef enum {
-  FIELD,
-  VAL,
-} field_type;
-
-typedef struct {
-  buffer *field;
-  buffer *value;
-} header;
-
-typedef struct {
-  buffer *path;
-  buffer *uri;
-  buffer *query_string;
-  buffer *fragment;
-  header *headers[LIMIT_REQUEST_FIELDS];
-  uint32_t num_headers;
-  field_type last_header_element;   
-} request;
-
-typedef enum {
-  BODY_TYPE_NONE,
-  BODY_TYPE_TMPFILE,
-  BODY_TYPE_BUFFER
-} request_body_type;
-
-typedef struct _client {
-  int fd;
-  char *remote_addr;
-  uint32_t remote_port;
-  uint8_t keep_alive;
-  request *req;
-  uint32_t body_length;
-  int body_readed;
-  void *body;
-  int bad_request_code;
-  request_body_type body_type;    
-  uint8_t complete;
-
-  http_parser *http;          // http req parser
-  VALUE environ;              // rack environ
-  int status_code;            // response status code
-    
-  VALUE http_status;             // response status line
-  VALUE headers;                 // http response headers
-  uint8_t header_done;            // header write status
-  VALUE response;                // rack response object
-  VALUE response_iter;           // rack response object
-  uint8_t content_length_set;     // content_length_set flag
-  uint32_t content_length;         // content_length
-  uint32_t write_bytes;            // send body length
-  void *bucket;               //write_data
-  uint8_t response_closed;    //response closed flag
-} client_t;
-
 typedef struct iovec iovec_t;
 
 typedef struct {
@@ -190,8 +128,6 @@ typedef struct {
   uint32_t total;
   uint32_t total_size;
 } write_bucket;
-
-
 
 
 int
