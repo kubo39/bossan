@@ -6,16 +6,6 @@ gem_files = Dir["LICENSE.txt",
                 "lib/**/*.rb",
                 "ext/**/*"]
  
- 
-if RbConfig::CONFIG['host_os'] =~ /linux/
-  gem_files.delete "ext/bossan/picoev_kqueue.c"
-elsif RbConfig::CONFIG['host_os'] =~ /darwin|(open|free)bsd/
-  gem_files.delete "ext/bossan/picoev_epoll.c"
-else
-  STDOUT.puts "Be posix compliant is mandatory"
-  exit 1
-end
- 
 Gem::Specification.new do |gem|
   gem.name = "bossan"
   gem.version = Bossan::VERSION
