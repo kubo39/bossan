@@ -1,10 +1,5 @@
 # -*- encoding: utf-8 -*-
-require 'rbconfig'
 require File.expand_path('../lib/bossan/version', __FILE__)
- 
-gem_files = Dir["LICENSE.txt",
-                "lib/**/*.rb",
-                "ext/**/*"]
  
 Gem::Specification.new do |gem|
   gem.name = "bossan"
@@ -15,7 +10,7 @@ Gem::Specification.new do |gem|
   gem.summary = gem.description
   gem.homepage = "https://github.com/kubo39/bossan"
  
-  gem.files = gem_files
+  gem.files = `git ls-files`.split($/)
   gem.extensions = ["ext/bossan/extconf.rb"]
   gem.require_paths = ["lib", "ext"]
  
