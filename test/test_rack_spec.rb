@@ -42,7 +42,7 @@ class RackSpecTest < Test::Unit::TestCase
   def setup
     @pid = fork do
       trap(:INT) { Bossan.stop }
-      Bossan.run("localhost", 8001, App.new)
+      Bossan.run("localhost", 8000, App.new)
     end
     Process.detach @pid
     unless server_is_wake_up?

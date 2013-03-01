@@ -13,3 +13,8 @@ task :clean do
   Dir.chdir File.expand_path("../ext/bossan", __FILE__)
   system "rm -f *.o Makefile"
 end
+
+task :test do
+  Dir.chdir File.expand_path("../test", __FILE__)
+  system "ruby test_rack_spec.rb"
+end
