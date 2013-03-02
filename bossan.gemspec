@@ -13,6 +13,7 @@ Gem::Specification.new do |gem|
   gem.files = `git ls-files`.split($/)
   gem.extensions = ["ext/bossan/extconf.rb"]
   gem.require_paths = ["lib", "ext"]
+  gem.test_files = `git ls-files -- {test,spec,features}/*`.split($/)
  
   gem.required_ruby_version = ">= 1.9.2"
   gem.add_dependency "rack", ["~> 1.2"]

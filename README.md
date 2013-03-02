@@ -21,8 +21,7 @@ or from source:
 ```
 git clone git://github.com/kubo39/bossan.git
 cd bossan
-rake build
-rake install
+rake
 ```
 
 ## Usage
