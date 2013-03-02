@@ -11,18 +11,18 @@ class RackEnvQueryTest < Test::Unit::TestCase
   DEFAULT_HOST = "localhost"
   DEFAULT_PORT = 8000
 
-  def test_simple_app
+  def test_query_app
     r, w = IO.pipe
     pid = fork do
       r.close
       trap(:INT) { Bossan.stop }
       Bossan.run(DEFAULT_HOST, DEFAULT_PORT,
                  proc {|env|
-                   env = env.dup
+                   @env = env.dup
                    # I have no idea how to check this two values..
-                   env.delete "rack.input"
-                   env.delete "rack.errors"
-                   w.write env
+                   @env.delete "rack.input"
+                   @env.delete "rack.errors"
+                   w.write @env
                    w.close
                    body = RESPONSE
                    [200,

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+require 'bossan'
 require 'test/unit'
 require 'pp'
-require 'bossan'
 require 'net/http'
 
 
@@ -18,11 +18,12 @@ class RackEnvSimpleTest < Test::Unit::TestCase
       trap(:INT) { Bossan.stop }
       Bossan.run(DEFAULT_HOST, DEFAULT_PORT,
                  proc {|env|
-                   env = env.dup
+                   @env = env.dup
                    # I have no idea how to check this two values..
-                   env.delete "rack.input"
-                   env.delete "rack.errors"
-                   w.write env
+                   @env.delete "rack.input"
+                   @env.delete "rack.errors"
+                   # pp @env
+                   w.write @env
                    w.close
                    body = RESPONSE
                    [200,
