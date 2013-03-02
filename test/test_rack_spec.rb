@@ -1,5 +1,5 @@
+require_relative '../lib/bossan'
 require 'test/unit'
-require 'bossan'
 require 'net/http'
 
 class RackSpecTest < Test::Unit::TestCase

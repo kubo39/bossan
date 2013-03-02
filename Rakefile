@@ -7,6 +7,7 @@ task :compile do
   Dir.chdir File.expand_path("../ext/bossan", __FILE__)
   sh "ruby extconf.rb"
   sh "make"
+  sh "mv bossan_ext.so ../../lib/bossan/"
 end
 
 task :clean do
