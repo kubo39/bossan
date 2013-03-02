@@ -16,5 +16,7 @@ test/tmp
 test/version_tmp
 tmp
 *.o
+*.so
 Makefile
+*.log
 TAGS
