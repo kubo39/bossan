@@ -6,11 +6,11 @@ class RackSpecTest < Test::Unit::TestCase
 
   ASSERT_RESPONSE = "Hello world!"
   RESPONSE = ["Hello ", "world!"].freeze
+  DEFAULT_HOST = "localhost"
+  DEFAULT_PORT = 8000
 
   class App
-    attr_reader :env
     def call env
-      @env = env.dup
       body = RESPONSE
       [200,
        {
@@ -25,8 +25,7 @@ class RackSpecTest < Test::Unit::TestCase
   def server_is_wake_up? n=100
     n.times {
       begin
-        Net::HTTP.start("localhost", 8000){|http|
-        }
+        Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT)
       rescue
         next
       end
@@ -42,7 +41,7 @@ class RackSpecTest < Test::Unit::TestCase
   def setup
     @pid = fork do
       trap(:INT) { Bossan.stop }
-      Bossan.run("localhost", 8000, App.new)
+      Bossan.run(DEFAULT_HOST, DEFAULT_PORT, App.new)
     end
     Process.detach @pid
     unless server_is_wake_up?

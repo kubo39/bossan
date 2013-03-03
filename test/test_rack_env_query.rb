@@ -45,7 +45,8 @@ class RackEnvQueryTest < Test::Unit::TestCase
     env = r.read
     r.close
 
-    env = eval "Hash[" + env.gsub("\"", "'") + "]"
+    # env = eval "Hash[" + env.gsub("\"", "'") + "]"
+    env = eval "Hash[" + env + "]"
 
     assert_equal(env["PATH_INFO"], "/ABC/DEF")
     assert_equal(env["QUERY_STRING"], "a=1234&bbbb=ccc")

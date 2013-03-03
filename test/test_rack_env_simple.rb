@@ -46,7 +46,7 @@ class RackEnvSimpleTest < Test::Unit::TestCase
     env = r.read
     r.close
 
-    env = eval "Hash[" + env.gsub("\"", "'") + "]"
+    env = eval "Hash[" + env + "]"
     # pp env
 
     assert_equal(env["PATH_INFO"], "/")
