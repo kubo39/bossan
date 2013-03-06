@@ -1,5 +1,6 @@
 #!/usr/bin/env rake
 require "bundler/gem_tasks"
+require "rbconfig"
 
 task :default => [:compile, :clean, :test]
 
@@ -7,7 +8,7 @@ task :compile do
   Dir.chdir File.expand_path("../ext/bossan", __FILE__)
   sh "ruby extconf.rb"
   sh "make"
-  sh "mv bossan_ext.so ../../lib/bossan/"
+  sh "mv bossan_ext.#{RbConfig::CONFIG['DLEXT']} ../../lib/bossan/"
 end
 
 task :clean do
