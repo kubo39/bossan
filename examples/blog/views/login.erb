@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+  <title>Sinatr</title>
+  <link rel="stylesheet" type="text/css" href="/static/style.css">
+  </head>
+  <body>
+  <div class="page">
+    <h2>Login</h2>
+    <% if @err %>
+    <p class="error"><h2>Error:</h2>
+    <%= @err %>
+    <% end %>
+    <form action="/login" method="POST">
+      <h3>Username:</h3>
+      <input type="text" name="username">
+      <h3>Password:</h3>
+      <input type="password" name="password">
+      <input type="submit" value="Login">
+    </form>
+  </div>
+  </body>
+</html>

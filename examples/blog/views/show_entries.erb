@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Sinatr</title>
+    <link rel="stylesheet" type="text/css" href="/static/style.css"/>
+  </head>
+  <body>
+    <div class="page">
+    <h1>Sinatr</h1>
+    <div class="metanav">
+   <% unless session.include?(:logged_in) %>
+    <a href="/login">log in</a>
+  <% else %>
+    <a href="/logout">log out</a>
+  <% end %>
+  </div>
+</div>
+  <% if session.include?(:logged_in) %>
+    <form action="/add" method="POST" class="add">
+      
+        <h3>Title:</h3>
+        <input type="text" size="30" name="title">
+        <h3>Text:</h3>
+        <textarea name="text" rows="5" cols="40"></textarea>
+        <input type="submit" value="Share">
+      
+    </form>
+  <% end %>
+  <ul class="entries">
+  <% unless (@entries == [] || @entries == nil) %>
+  <% @entries.each do |entry| %>
+    <h2><%= entry[:title] %></h2>
+    <%= entry[:text] %>
+  <% end %>
+  <% end %>
+  </ul>
+</body>
+<html>
