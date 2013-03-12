@@ -540,26 +540,6 @@ write_headers(client_t *client)
 }
   
 
-/* static int */
-/* write_sendfile(int out_fd, int in_fd, size_t count) */
-/* { */
-/*   int size = (int)count; */
-  
-/*   if (size == 0) { */
-/*     struct stat info; */
-/*     if (fstat(in_fd, &info) == -1){ */
-/*       // TODO: */
-/*       // raise exception from errno */
-/*       /\* rb_raise(); *\/ */
-/*       /\* write_error_log(__FILE__, __LINE__);  *\/ */
-/*       return -1; */
-/*     } */
-/*     size = info.st_size - lseek(in_fd, 0, SEEK_CUR); */
-/*   } */
-/*   return sendfile(out_fd, in_fd, NULL, count); */
-/* } */
-
-
 static void
 close_response(client_t *client)
 {
@@ -1516,7 +1496,6 @@ prepare_call_rack(client_t *client)
   char *val;
 
   if(client->body_type == BODY_TYPE_BUFFER) {
-    /* rb_p( rb_funcall((VALUE)client->body, rb_intern("gets"), 0) ); */
     rb_funcall((VALUE)client->body, i_seek, 1, INT2NUM(0));
     rb_hash_aset(client->environ, rack_input, (VALUE)client->body);
   } else {
