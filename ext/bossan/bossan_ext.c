@@ -52,7 +52,7 @@
 
 #define SERVER "bossan/0.1.6"
 
-#define DEBUG 1
+/* #define DEBUG 1 */
 
 VALUE server; // Bossan
 
@@ -745,14 +745,10 @@ write_body2file(client_t *client, const char *buffer, size_t buffer_len)
 static int
 write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
 {
-  VALUE obj, tmp;
-  printf("body2mem called\n");
-  /* obj = client->body; */
-
-  printf(buffer);
+  VALUE obj;
+  /* printf("body2mem called\n"); */
 
   rb_funcall((VALUE)client->body, rb_intern("write"), 1, rb_str_new(buffer, buffer_len));
-
   client->body_readed += buffer_len;
 #ifdef DEBUG
   printf("write_body2mem %d bytes \n", buffer_len);
@@ -1030,13 +1026,11 @@ body_cb (http_parser *p, const char *buf, size_t len, char partial)
     printf("client->body_length %d \n", client->body_length);
 #endif
     client->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
-    rb_p(client->body);
     client->body_type = BODY_TYPE_BUFFER;
 #ifdef DEBUG
     printf("BODY_TYPE_BUFFER \n");
 #endif
   }
-  printf("here1\n");
   write_body(client, buf, len);
   return 0;
 }
@@ -1522,7 +1516,7 @@ prepare_call_rack(client_t *client)
   char *val;
 
   if(client->body_type == BODY_TYPE_BUFFER) {
-    rb_p( rb_funcall((VALUE)client->body, rb_intern("gets"), 0) );
+    /* rb_p( rb_funcall((VALUE)client->body, rb_intern("gets"), 0) ); */
     rb_p( rb_funcall((VALUE)client->body, rb_intern("seek"), 1, INT2NUM(0)) );
     rb_hash_aset(client->environ, rack_input, (VALUE)client->body);
   } else {
