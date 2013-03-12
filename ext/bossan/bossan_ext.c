@@ -96,6 +96,8 @@ static VALUE i_new;
 static VALUE i_key;
 static VALUE i_each;
 static VALUE i_close;
+static VALUE i_write;
+static VALUE i_seek;
 
 static const char *server_name = "127.0.0.1";
 static short server_port = 8000;
@@ -746,7 +748,7 @@ write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
   VALUE obj;
   /* printf("body2mem called\n"); */
 
-  rb_funcall((VALUE)client->body, rb_intern("write"), 1, rb_str_new(buffer, buffer_len));
+  rb_funcall((VALUE)client->body, i_write, 1, rb_str_new(buffer, buffer_len));
   client->body_readed += buffer_len;
 #ifdef DEBUG
   printf("write_body2mem %d bytes \n", buffer_len);
@@ -1515,14 +1517,13 @@ prepare_call_rack(client_t *client)
 
   if(client->body_type == BODY_TYPE_BUFFER) {
     /* rb_p( rb_funcall((VALUE)client->body, rb_intern("gets"), 0) ); */
-    rb_p( rb_funcall((VALUE)client->body, rb_intern("seek"), 1, INT2NUM(0)) );
+    rb_funcall((VALUE)client->body, i_seek, 1, INT2NUM(0));
     rb_hash_aset(client->environ, rack_input, (VALUE)client->body);
   } else {
     object = rb_str_new2("");
     input = rb_funcall(StringIO, i_new, 1, object);
     rb_gc_register_address(&input);
     rb_hash_aset(client->environ, rack_input, input);
-    /* client->body = object; */
     client->body = input;
   }
 
@@ -1985,6 +1986,8 @@ Init_bossan_ext(void)
   rb_gc_register_address(&i_key);
   rb_gc_register_address(&i_each);
   rb_gc_register_address(&i_close);
+  rb_gc_register_address(&i_write);
+  rb_gc_register_address(&i_seek);
 
   rb_gc_register_address(&rack_app); //rack app
 
@@ -1994,6 +1997,8 @@ Init_bossan_ext(void)
   i_key = rb_intern("key?");
   i_each = rb_intern("each");
   i_close = rb_intern("close");
+  i_write = rb_intern("write");
+  i_seek = rb_intern("seek");
 
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
