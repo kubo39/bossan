@@ -19,4 +19,5 @@ tmp
 *.so
 Makefile
 *.log
+*.db
 TAGS
