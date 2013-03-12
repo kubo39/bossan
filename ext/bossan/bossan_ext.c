@@ -50,7 +50,7 @@
 
 #define MSG_413 ("HTTP/1.0 413 Request Entity Too Large\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n<html><head><title>Request Entity Too Large</title></head><body><p>Request Entity Too Large.</p></body></html>")
 
-#define SERVER "bossan/0.1.7"
+#define SERVER "bossan/0.1.8"
 
 VALUE server; // Bossan
 
