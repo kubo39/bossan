@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 require 'rack/handler'
-require 'bossan'
+require_relative '../../bossan'
 
 module Rack
   module Handler
