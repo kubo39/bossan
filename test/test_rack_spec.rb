@@ -39,6 +39,8 @@ class RackSpecTest < Test::Unit::TestCase
   private :server_is_wake_up?
 
   def setup
+    $stderr.puts RUBY_DESCRIPTION
+
     @pid = fork do
       trap(:INT) { Bossan.stop }
       Bossan.run(DEFAULT_HOST, DEFAULT_PORT, App.new)
