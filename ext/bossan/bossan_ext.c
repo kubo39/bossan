@@ -50,7 +50,7 @@
 
 #define MSG_413 ("HTTP/1.0 413 Request Entity Too Large\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n<html><head><title>Request Entity Too Large</title></head><body><p>Request Entity Too Large.</p></body></html>")
 
-#define SERVER "bossan/0.1.8"
+#define SERVER "bossan/0.2.0-dev"
 
 VALUE server; // Bossan
 
@@ -693,7 +693,7 @@ static void
 key_upper(char *s, const char *key, size_t len)
 {
   int i = 0;
-  register int c;
+  int c;
   for (i = 0; i < len; i++) {
     c = key[i];
     if(c == '-'){
@@ -726,7 +726,6 @@ static int
 write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
 {
   VALUE obj;
-  /* printf("body2mem called\n"); */
 
   rb_funcall((VALUE)client->body, i_write, 1, rb_str_new(buffer, buffer_len));
   client->body_readed += buffer_len;
@@ -910,7 +909,7 @@ int
 request_uri_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   client_t *client = get_client(p);
-  register request *req = client->req;
+  request *req = client->req;
   buffer_result ret = MEMORY_ERROR;
     
   if(req->uri){
@@ -964,7 +963,7 @@ int
 fragment_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   client_t *client = get_client(p);
-  register request *req = client->req;
+  request *req = client->req;
   buffer_result ret = MEMORY_ERROR;
   
   if(req->fragment){
