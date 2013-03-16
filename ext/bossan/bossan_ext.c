@@ -1983,6 +1983,7 @@ Init_bossan_ext(void)
 
   rb_define_module_function(server, "run", bossan_run_loop, -1);
   rb_define_module_function(server, "stop", bossan_stop, 0);
+  rb_define_module_function(server, "shutdown", bossan_stop, 0);
 
   rb_define_module_function(server, "access_log", bossan_access_log, 1);
   rb_define_module_function(server, "set_max_content_length", bossan_set_max_content_length, 1);
