@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #ifdef linux
-#include <sys/sendfile.h>
+/* #include <sys/sendfile.h> */
 #include <sys/prctl.h>
 #elif defined(__APPLE__) || defined(__FreeBSD__)
 #include <sys/uio.h>
@@ -116,6 +116,7 @@ static int log_fd = -1; //access log
 /* static int err_log_fd = -1; //error log */
 
 static int is_keep_alive = 0; //keep alive support
+
 int max_content_length = 1024 * 1024 * 16; //max_content_length
 
 static VALUE StringIO;
@@ -1629,12 +1630,9 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 #endif
       setup_sock(client_fd);
       client = new_client_t(client_fd, client_addr);
-
-      client->environ = Qnil;
+      /* client->environ = Qnil; */
       rb_gc_register_address(&client->environ);
-
       init_parser(client, server_name, server_port);
-
       picoev_add(loop, client_fd, PICOEV_READ, READ_LONG_TIMEOUT_SECS, r_callback, (void *)client);
     }else{
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
