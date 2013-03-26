@@ -29,7 +29,6 @@ class RackSpecTest < Test::Unit::TestCase
       rescue
         next
       end
-      server_is_wake_up = true
       $stderr.puts "*** running success ***"
       return true
     }
