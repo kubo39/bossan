@@ -1,25 +1,4 @@
-#include "ruby.h"
-#include <assert.h>
-#include <fcntl.h>   
-#include <stddef.h> 
-#include <unistd.h>
-#include <errno.h>
-#include <arpa/inet.h>
-#include <signal.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#ifdef linux
-/* #include <sys/sendfile.h> */
-#include <sys/prctl.h>
-#elif defined(__APPLE__) || defined(__FreeBSD__)
-#include <sys/uio.h>
-#endif
-#include <sys/un.h>
-#include <sys/stat.h>
-#include <sys/file.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <netdb.h>
+#include "bossan.h"
 
 #include "time_cache.h"
 #include "http_parser.h"
@@ -411,9 +390,7 @@ writev_bucket(write_bucket *data)
 	}
       }
       data->total = data->total -w;
-#ifdef DEBUG
-      printf("writev_bucket write %d progeress %d/%d \n", w, data->total, data->total_size);
-#endif
+      DEBUG("writev_bucket write %d progeress %d/%d \n", w, data->total, data->total_size);
       //resume
       // again later
       return writev_bucket(data);
@@ -663,9 +640,7 @@ start_response_write(client_t *client)
     return -1;
   }
 
-#ifdef DEBUG
-  printf("start_response_write buflen %d \n", buflen);
-#endif
+  DEBUG("start_response_write buflen %d \n", buflen);
   return write_headers(client);
 }
 
@@ -679,9 +654,7 @@ response_start(client_t *client)
     return write_headers(client);
   }
   ret = start_response_write(client);
-#ifdef DEBUG
-  printf("start_response_write ret = %d \n", ret);
-#endif
+  DEBUG("start_response_write ret = %d \n", ret);
   if(ret > 0){
     // sended header
     ret = processs_write(client);
@@ -716,9 +689,7 @@ write_body2file(client_t *client, const char *buffer, size_t buffer_len)
   FILE *tmp = (FILE *)client->body;
   fwrite(buffer, 1, buffer_len, tmp);
   client->body_readed += buffer_len;
-#ifdef DEBUG
-  printf("write_body2file %d bytes \n", buffer_len);
-#endif
+  DEBUG("write_body2file %d bytes \n", buffer_len);
   return client->body_readed;
 }
 
@@ -730,9 +701,7 @@ write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
 
   rb_funcall((VALUE)client->body, i_write, 1, rb_str_new(buffer, buffer_len));
   client->body_readed += buffer_len;
-#ifdef DEBUG
-  printf("write_body2mem %d bytes \n", buffer_len);
-#endif
+  DEBUG("write_body2mem %d bytes \n", buffer_len);
   return client->body_readed;
 }
 
@@ -1002,14 +971,10 @@ body_cb (http_parser *p, const char *buf, size_t len, char partial)
       return -1;
     }
     //default memory stream
-#ifdef DEBUG
-    printf("client->body_length %d \n", client->body_length);
-#endif
+    DEBUG("client->body_length %d \n", client->body_length);
     client->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
     client->body_type = BODY_TYPE_BUFFER;
-#ifdef DEBUG
-    printf("BODY_TYPE_BUFFER \n");
-#endif
+    DEBUG("BODY_TYPE_BUFFER \n");
   }
   write_body(client, buf, len);
   return 0;
@@ -1331,9 +1296,7 @@ clean_cli(client_t *client)
     free_request(client->req);
     client->req = NULL;
   }
-#ifdef DEBUG
-  printf("close environ %p \n", client->environ);
-#endif
+  DEBUG("close environ %p \n", client->environ);
 
   // force clear
   client->environ = rb_hash_new();
@@ -1352,9 +1315,7 @@ close_conn(client_t *cli, picoev_loop* loop)
     picoev_del(loop, cli->fd);
     clean_cli(cli);
     close(cli->fd);
-#ifdef DEBUG
-    printf("close fd %d \n", cli->fd);
-#endif
+    DEBUG("close fd %d \n", cli->fd);
     ruby_xfree(cli);
   }else{
     clean_cli(cli);
@@ -1426,13 +1387,9 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
   client_t *client = ( client_t *)(cb_arg);
   int ret;
-#ifdef DEBUG
-  printf("call w_callback \n");
-#endif
+  DEBUG("call w_callback \n");
   if ((events & PICOEV_TIMEOUT) != 0) {
-#ifdef DEBUG
-    printf("** w_callback timeout ** \n");
-#endif
+    DEBUG("** w_callback timeout ** \n");
     //timeout
     client->keep_alive = 0;
     close_conn(client, loop);
@@ -1440,9 +1397,7 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   } else if ((events & PICOEV_WRITE) != 0) {
     ret = process_body(client);
     picoev_set_timeout(loop, client->fd, WRITE_TIMEOUT_SECS);
-#ifdef DEBUG
-    printf("process_body ret %d \n", ret);
-#endif
+    DEBUG("process_body ret %d \n", ret);
     if(ret != 0){
       //ok or die
       close_conn(client, loop);
@@ -1475,9 +1430,7 @@ call_rack_app(client_t *client, picoev_loop* loop)
   case 0:
     // continue
     // set callback
-#ifdef DEBUG
-    printf("set write callback %d \n", ret);
-#endif
+    DEBUG("set write callback %d \n", ret);
     //clear event
     picoev_del(loop, client->fd);
     picoev_add(loop, client->fd, PICOEV_WRITE, WRITE_TIMEOUT_SECS, w_callback, (void *)client);
@@ -1528,16 +1481,12 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
   client_t *cli = ( client_t *)(cb_arg);
   if ((events & PICOEV_TIMEOUT) != 0) {
-#ifdef DEBUG
-    printf("** r_callback timeout ** \n");
-#endif
+    DEBUG("** r_callback timeout ** \n");
     //timeout
     cli->keep_alive = 0;
     close_conn(cli, loop);
   } else if ((events & PICOEV_READ) != 0) {
-#ifdef DEBUG
-    printf("ready read \n");
-#endif
+    DEBUG("ready read \n");
     /* update timeout, and read */
     int finish = 0, nread;
     char buf[INPUT_BUF_SIZE];
@@ -1566,32 +1515,25 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
       }
       break;
     default:
-#ifdef DEBUG
-      printf("read request fd %d bufsize %d \n", cli->fd, r);
-#endif
+      DEBUG("read request fd %d bufsize %d \n", cli->fd, r);
       nread = execute_parse(cli, buf, r);
                 
       if(cli->bad_request_code > 0){
-#ifdef DEBUG
-	printf("fd %d bad_request code %d \n", cli->fd,  cli->bad_request_code);
-#endif
+	DEBUG("fd %d bad_request code %d \n", cli->fd,  cli->bad_request_code);
 	send_error_page(cli);
 	close_conn(cli, loop);
 	return;
       }
       if( nread != r ){
 	// parse error
-#ifdef DEBUG
-	printf("fd %d parse error %d \n", cli->fd, cli->bad_request_code);
-#endif
+	DEBUG("fd %d parse error %d \n", cli->fd, cli->bad_request_code);
 	cli->bad_request_code = 400;
 	send_error_page(cli);
 	close_conn(cli, loop);
 	return;
       }
-#ifdef DEBUG
-      printf("parse ok, fd %d %d nread \n", cli->fd, nread);
-#endif
+      DEBUG("parse ok, fd %d %d nread \n", cli->fd, nread);
+
       if(parser_finish(cli) > 0){
 	finish = 1;
       }
@@ -1625,9 +1567,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
 #endif
     if (client_fd != -1) {
-#ifdef DEBUG
-      printf("accept fd %d \n", client_fd);
-#endif
+      DEBUG("accept fd %d \n", client_fd);
       setup_sock(client_fd);
       client = new_client_t(client_fd, client_addr);
       /* client->environ = Qnil; */
@@ -1747,9 +1687,7 @@ unix_listen(char *sock_name)
   struct sockaddr_un saddr;
   mode_t old_umask;
 
-#ifdef DEBUG
-  printf("unix domain socket %s\n", sock_name);
-#endif
+  DEBUG("unix domain socket %s\n", sock_name);
   memset(&saddr, 0, sizeof(saddr));
   check_unix_sockpath(sock_name);
 
