@@ -119,6 +119,27 @@ open_log_file(const char *path)
 }
 
 
+void
+write_error_log(char *file_name, int line)
+{
+  char buf[64];
+  FILE *fp = stderr;
+  int fd = fileno(fp);
+
+  flock(fd, LOCK_EX);
+
+  cache_time_update();
+  fputs((char *)err_log_time, fp);
+  fputs(" [error] ", fp);
+
+  sprintf(buf, "pid %d, File \"%s\", line %d :", getpid(), file_name, line);
+  fputs(buf, fp);
+  fflush(fp);
+
+  flock(fd, LOCK_UN);
+}
+
+
 static int
 write_log(const char *new_path, int fd, const char *data, size_t len)
 {
@@ -241,7 +262,7 @@ blocking_write(client_t *client, char *data, size_t len)
 	  // TODO:
 	  // raise exception from errno
 
-	  /* write_error_log(__FILE__, __LINE__); */
+	  write_error_log(__FILE__, __LINE__);
 	  client->keep_alive = 0;
 	}
 	return -1;
@@ -371,7 +392,7 @@ writev_bucket(write_bucket *data)
       // TODO:
       // raise exception from errno
       /* rb_raise(rb_eIOError); */
-      /* write_error_log(__FILE__, __LINE__);  */
+      write_error_log(__FILE__, __LINE__);
       return -1;
     }
   }if(w == 0){
@@ -509,7 +530,7 @@ write_headers(client_t *client)
   }
   return ret;
  error:
-  /* write_error_log(__FILE__, __LINE__); */
+  write_error_log(__FILE__, __LINE__);
   if(bucket){
     free_write_bucket(bucket);
     client->bucket = NULL;
@@ -1374,7 +1395,7 @@ process_rack_app(client_t *cli)
 
   //check response
   if(cli->response && cli->response == Qnil){
-    /*   write_error_log(__FILE__, __LINE__); */
+    write_error_log(__FILE__, __LINE__);
     rb_raise(rb_eException, "response must be a iter or sequence object");
   }
 
@@ -1389,7 +1410,7 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   int ret;
   DEBUG("call w_callback \n");
   if ((events & PICOEV_TIMEOUT) != 0) {
-    DEBUG("** w_callback timeout ** \n");
+    YDEBUG("** w_callback timeout ** \n");
     //timeout
     client->keep_alive = 0;
     close_conn(client, loop);
@@ -1507,7 +1528,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 	// TODO:
 	// raise exception from errno
 	/* rb_raise(); */
-	/* write_error_log(__FILE__, __LINE__);  */
+	write_error_log(__FILE__, __LINE__);
 	cli->keep_alive = 0;
 	cli->status_code = 500;
 	close_conn(cli, loop);
@@ -1579,7 +1600,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 	// TODO:
 	// raise exception from errno
 	/* rb_raise(); */
-	/* write_error_log(__FILE__, __LINE__); */
+	write_error_log(__FILE__, __LINE__);
 	// die
 	loop_done = 0;
       }
