@@ -13,7 +13,7 @@ end
 
 task :clean do
   Dir.chdir File.expand_path("../ext/bossan", __FILE__)
-  sh "rm -f *.o Makefile"
+  sh "rm -f *.o Makefile mkmf.log"
 end
 
 task :test do
