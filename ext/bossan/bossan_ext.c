@@ -661,7 +661,7 @@ start_response_write(client_t *client)
     return -1;
   }
 
-  DEBUG("start_response_write buflen %d \n", buflen);
+  /* DEBUG("start_response_write buflen %d \n", buflen); */
   return write_headers(client);
 }
 
@@ -704,15 +704,15 @@ key_upper(char *s, const char *key, size_t len)
 }
 
 
-static int
-write_body2file(client_t *client, const char *buffer, size_t buffer_len)
-{
-  FILE *tmp = (FILE *)client->body;
-  fwrite(buffer, 1, buffer_len, tmp);
-  client->body_readed += buffer_len;
-  DEBUG("write_body2file %d bytes \n", buffer_len);
-  return client->body_readed;
-}
+/* static int */
+/* write_body2file(client_t *client, const char *buffer, size_t buffer_len) */
+/* { */
+/*   FILE *tmp = (FILE *)client->body; */
+/*   fwrite(buffer, 1, buffer_len, tmp); */
+/*   client->body_readed += buffer_len; */
+/*   DEBUG("write_body2file %d bytes \n", buffer_len); */
+/*   return client->body_readed; */
+/* } */
 
 
 static int
@@ -1502,12 +1502,12 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
   client_t *cli = ( client_t *)(cb_arg);
   if ((events & PICOEV_TIMEOUT) != 0) {
-    DEBUG("** r_callback timeout ** \n");
+    YDEBUG("** r_callback timeout ** \n");
     //timeout
     cli->keep_alive = 0;
     close_conn(cli, loop);
   } else if ((events & PICOEV_READ) != 0) {
-    DEBUG("ready read \n");
+    RDEBUG("ready read \n");
     /* update timeout, and read */
     int finish = 0, nread;
     char buf[INPUT_BUF_SIZE];
@@ -1536,11 +1536,11 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
       }
       break;
     default:
-      DEBUG("read request fd %d bufsize %d \n", cli->fd, r);
+      RDEBUG("read request fd %d bufsize %d \n", cli->fd, r);
       nread = execute_parse(cli, buf, r);
                 
       if(cli->bad_request_code > 0){
-	DEBUG("fd %d bad_request code %d \n", cli->fd,  cli->bad_request_code);
+	RDEBUG("fd %d bad_request code %d \n", cli->fd,  cli->bad_request_code);
 	send_error_page(cli);
 	close_conn(cli, loop);
 	return;
@@ -1553,7 +1553,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 	close_conn(cli, loop);
 	return;
       }
-      DEBUG("parse ok, fd %d %d nread \n", cli->fd, nread);
+      RDEBUG("parse ok, fd %d %d nread \n", cli->fd, nread);
 
       if(parser_finish(cli) > 0){
 	finish = 1;
