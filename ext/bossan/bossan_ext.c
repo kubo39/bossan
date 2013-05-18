@@ -319,15 +319,6 @@ send_error_page(client_t *client)
 
 
 static void
-extent_sndbuf(client_t *client)
-{
-  int bufsize = 1024 * 1024 * 2, r;
-  r = setsockopt(client->fd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize));
-  assert(r == 0);
-}
-
-
-static void
 enable_cork(client_t *client)
 {
   int on = 1, r;
@@ -710,17 +701,6 @@ key_upper(char *s, const char *key, size_t len)
     }
   }
 }
-
-
-/* static int */
-/* write_body2file(client_t *client, const char *buffer, size_t buffer_len) */
-/* { */
-/*   FILE *tmp = (FILE *)client->body; */
-/*   fwrite(buffer, 1, buffer_len, tmp); */
-/*   client->body_readed += buffer_len; */
-/*   DEBUG("write_body2file %d bytes \n", buffer_len); */
-/*   return client->body_readed; */
-/* } */
 
 
 static int
