@@ -1,4 +1,4 @@
-require 'bossan'
+require '../lib/bossan'
 require 'sinatra/base'
 
 class App < Sinatra::Base
