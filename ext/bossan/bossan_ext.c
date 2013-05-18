@@ -95,6 +95,7 @@ static int log_fd = -1; //access log
 /* static int err_log_fd = -1; //error log */
 
 static int is_keep_alive = 0; //keep alive support
+static int keep_alive_timeout = 5;
 
 int max_content_length = 1024 * 1024 * 16; //max_content_length
 
@@ -110,6 +111,13 @@ typedef struct {
   uint32_t total;
   uint32_t total_size;
 } write_bucket;
+
+
+static void
+r_callback(picoev_loop* loop, int fd, int events, void* cb_arg);
+
+static void
+w_callback(picoev_loop* loop, int fd, int events, void* cb_arg);
 
 
 int
@@ -1262,12 +1270,35 @@ setsig(int sig, void* handler)
 }
 
 
+void 
+setup_listen_sock(int fd)
+{
+  int on = 1, r;
+  r = setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &on, sizeof(on));
+  assert(r == 0);
+  r = fcntl(fd, F_SETFL, O_NONBLOCK);
+  assert(r == 0);
+}
+
+
 static void
 setup_sock(int fd)
 {
   int on = 1, r;
   r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
   assert(r == 0);
+
+  // 60 + 30 * 4
+  on = 300;
+  r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &on, sizeof(on));
+  assert(r == 0);
+  on = 30;
+  r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &on, sizeof(on));
+  assert(r == 0);
+  on = 4;
+  r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &on, sizeof(on));
+  assert(r == 0);
+
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
 }
@@ -1290,21 +1321,18 @@ disable_cork(client_t *client)
 
 
 static client_t *
-new_client_t(int client_fd, struct sockaddr_in client_addr){
+new_client_t(int client_fd, char *remote_addr, uint32_t remote_port)
+{
   client_t *client;
     
   client = ruby_xmalloc(sizeof(client_t));
   memset(client, 0, sizeof(client_t));
     
-  /* printf("size %d\n", sizeof(client_t)); */
-
   client->fd = client_fd;
-    
-  client->remote_addr = inet_ntoa(client_addr.sin_addr);
-  client->remote_port = ntohs(client_addr.sin_port);
+  client->remote_addr = remote_addr;
+  client->remote_port = remote_port;
   client->req = new_request();
   client->body_type = BODY_TYPE_NONE;
-  //printf("input_buf_size %d\n", client->input_buf_size);
   return client;
 }
 
@@ -1332,30 +1360,25 @@ clean_cli(client_t *client)
 static void
 close_conn(client_t *cli, picoev_loop* loop)
 {
-  if(!cli->keep_alive){
-    picoev_del(loop, cli->fd);
-    clean_cli(cli);
-    close(cli->fd);
-    DEBUG("close fd %d \n", cli->fd);
-    ruby_xfree(cli);
-  }else{
-    clean_cli(cli);
-    disable_cork(cli);
-    cli->keep_alive = 1;
-    cli->environ = Qnil;
-    cli->http_status = Qnil;
-    cli->headers = Qnil;
-    cli->header_done = 0;
-    cli->body_type = BODY_TYPE_NONE;
-    cli->status_code = 0;
-    cli->response = Qnil;
-    cli->content_length_set = 0;
-    cli->content_length = 0;
-    cli->write_bytes = 0;
-    cli->response_closed = 0;
-    cli->bad_request_code = 0;
-    init_parser(cli, server_name, server_port);
+  client_t *new_client;
+  if(!cli->response_closed){
+    close_response(cli);
   }
+  picoev_del(loop, cli->fd);
+
+  DEBUG("picoev_del client:%p fd:%d \n", cli, cli->fd);
+  clean_cli(cli);
+  if(!cli->keep_alive){
+    close(cli->fd);
+    DEBUG("close client:%p fd:%d \n", cli, cli->fd);
+  }else{
+    disable_cork(cli);
+    new_client = new_client_t(cli->fd, cli->remote_addr, cli->remote_port);
+    new_client->keep_alive = 1;
+    init_parser(new_client, server_name, server_port);
+    picoev_add(main_loop, new_client->fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)new_client);
+  }
+  ruby_xfree(cli);
 }
 
 
@@ -1440,7 +1463,6 @@ call_rack_app(client_t *client, picoev_loop* loop)
   }
 
   ret = response_start(client);
-  /* printf("response_start done: %d\n", ret); */
   switch(ret){
   case -1:
     // Internal Server Error
@@ -1518,19 +1540,32 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     r = read(cli->fd, buf, sizeof(buf));
     switch (r) {
     case 0: 
-      finish = 1;
-      break;
+      cli->keep_alive = 0;
+      cli->status_code = 500; // ??? 503 ??
+      send_error_page(cli);
+      close_conn(cli, loop);
+      return;
     case -1: /* error */
       if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
 	break;
       } else { /* fatal error */
-	rb_raise(rb_eException, "fatal error");
-	// TODO:
-	// raise exception from errno
-	/* rb_raise(); */
-	write_error_log(__FILE__, __LINE__);
-	cli->keep_alive = 0;
-	cli->status_code = 500;
+	if (cli->keep_alive && errno == ECONNRESET) {
+	  cli->keep_alive = 0;
+	  cli->status_code = 500;
+	  cli->header_done = 1;
+	  cli->response_closed = 1;
+	} else {
+	  /* rb_raise(rb_eException, "fatal error"); */
+	  write_error_log(__FILE__, __LINE__);
+	  cli->keep_alive = 0;
+	  cli->status_code = 500;
+	  if(errno != ECONNRESET){
+	    send_error_page(cli);
+	  }else{
+	    cli->header_done = 1;
+	    cli->response_closed = 1;
+	  }
+	}
 	close_conn(cli, loop);
 	return;
       }
@@ -1538,7 +1573,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     default:
       RDEBUG("read request fd %d bufsize %d \n", cli->fd, r);
       nread = execute_parse(cli, buf, r);
-                
+
       if(cli->bad_request_code > 0){
 	RDEBUG("fd %d bad_request code %d \n", cli->fd,  cli->bad_request_code);
 	send_error_page(cli);
@@ -1562,6 +1597,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     }
     
     if(finish == 1){
+      /* picoev_del(loop, cli->fd); */
       prepare_call_rack(cli);
       call_rack_app(cli, loop);
       return;
@@ -1576,6 +1612,9 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   int client_fd;
   client_t *client;
   struct sockaddr_in client_addr;
+  char *remote_addr;
+  uint32_t remote_port;
+
   if ((events & PICOEV_TIMEOUT) != 0) {
     // time out
     // next turn or other process
@@ -1590,16 +1629,14 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     if (client_fd != -1) {
       DEBUG("accept fd %d \n", client_fd);
       setup_sock(client_fd);
-      client = new_client_t(client_fd, client_addr);
-      /* client->environ = Qnil; */
+      remote_addr = inet_ntoa(client_addr.sin_addr);
+      remote_port = ntohs(client_addr.sin_port);
+      client = new_client_t(client_fd, remote_addr, remote_port);
       rb_gc_register_address(&client->environ);
       init_parser(client, server_name, server_port);
-      picoev_add(loop, client_fd, PICOEV_READ, READ_LONG_TIMEOUT_SECS, r_callback, (void *)client);
+      picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
     }else{
       if (errno != EAGAIN && errno != EWOULDBLOCK) {
-	// TODO:
-	// raise exception from errno
-	/* rb_raise(); */
 	write_error_log(__FILE__, __LINE__);
 	// die
 	loop_done = 0;
@@ -1612,9 +1649,9 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 static void
 setup_server_env(void)
 {
+  setup_listen_sock(listen_sock);
   setup_sock(listen_sock);
   cache_time_init();
-
   setup_static_env(server_name, server_port);
 }
 
@@ -1635,9 +1672,6 @@ inet_listen(void)
   snprintf(strport, sizeof (strport), "%d", server_port);
   
   if ((rv = getaddrinfo(server_name, strport, &hints, &servinfo)) == -1) {
-    // TODO:
-    // raise exception from errno
-    /* rb_raise(); */
     return -1;
   }
 
@@ -1652,17 +1686,11 @@ inet_listen(void)
     if (setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &flag,
 		   sizeof(int)) == -1) {
       close(listen_sock);
-      // TODO:
-      // raise exception from errno
-      /* rb_raise(); */
       return -1;
     }
 
     if (bind(listen_sock, p->ai_addr, p->ai_addrlen) == -1) {
       close(listen_sock);
-      // TODO:
-      // raise exception from errno
-      /* rb_raise(); */
       return -1;
     }
     break;
@@ -1679,9 +1707,6 @@ inet_listen(void)
   // BACKLOG 1024
   if (listen(listen_sock, BACKLOG) == -1) {
     close(listen_sock);
-    // TODO:
-    // raise exception from errno
-    /* rb_raise(); */
     return -1;
   }
   setup_server_env();
@@ -1748,7 +1773,6 @@ static void
 sigint_cb(int signum)
 {
   loop_done = 0;
-  /* rb_interrupt(); */
 }
 
 
@@ -1855,6 +1879,9 @@ bossan_run_loop(int argc, VALUE *argv, VALUE self)
   picoev_destroy_loop(main_loop);
   picoev_deinit();
 
+  if(unix_sock_name){
+    unlink(unix_sock_name);
+  }
   printf("Bye.\n");
   return Qnil;
 }
@@ -1872,6 +1899,35 @@ VALUE
 bossan_get_max_content_length(VALUE self)
 {
   return INT2NUM(max_content_length);
+}
+
+
+VALUE 
+bossan_set_keepalive(VALUE self, VALUE args)
+{
+  int on;
+
+  on = NUM2INT(args);
+  if(on < 0){
+    rb_P("keep alive value out of range.\n");
+    return Qfalse;
+  }
+
+  is_keep_alive = on;
+
+  if(is_keep_alive){
+    keep_alive_timeout = on;
+  }else{
+    keep_alive_timeout = 2;
+  }
+  return Qnil;
+}
+
+
+VALUE
+bossan_get_keepalive(VALUE self)
+{
+  return INT2NUM(is_keep_alive);
 }
 
 
@@ -1945,6 +2001,9 @@ Init_bossan_ext(void)
   rb_define_module_function(server, "access_log", bossan_access_log, 1);
   rb_define_module_function(server, "set_max_content_length", bossan_set_max_content_length, 1);
   rb_define_module_function(server, "get_max_content_length", bossan_get_max_content_length, 0);
+
+  rb_define_module_function(server, "set_keepalive", bossan_set_keepalive, 1);
+  rb_define_module_function(server, "get_keepalive", bossan_get_keepalive, 0);
 
   rb_require("stringio");
   StringIO = rb_const_get(rb_cObject, rb_intern("StringIO"));
