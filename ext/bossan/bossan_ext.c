@@ -1374,6 +1374,7 @@ close_conn(client_t *cli, picoev_loop* loop)
   }else{
     disable_cork(cli);
     new_client = new_client_t(cli->fd, cli->remote_addr, cli->remote_port);
+    rb_gc_register_address(&new_client->environ);
     new_client->keep_alive = 1;
     init_parser(new_client, server_name, server_port);
     picoev_add(main_loop, new_client->fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)new_client);
@@ -1902,33 +1903,33 @@ bossan_get_max_content_length(VALUE self)
 }
 
 
-/* VALUE  */
-/* bossan_set_keepalive(VALUE self, VALUE args) */
-/* { */
-/*   int on; */
+VALUE 
+bossan_set_keepalive(VALUE self, VALUE args)
+{
+  int on;
 
-/*   on = NUM2INT(args); */
-/*   if(on < 0){ */
-/*     rb_P("keep alive value out of range.\n"); */
-/*     return Qfalse; */
-/*   } */
+  on = NUM2INT(args);
+  if(on < 0){
+    rb_p("keep alive value out of range.\n");
+    return Qfalse;
+  }
 
-/*   is_keep_alive = on; */
+  is_keep_alive = on;
 
-/*   if(is_keep_alive){ */
-/*     keep_alive_timeout = on; */
-/*   }else{ */
-/*     keep_alive_timeout = 2; */
-/*   } */
-/*   return Qnil; */
-/* } */
+  if(is_keep_alive){
+    keep_alive_timeout = on;
+  }else{
+    keep_alive_timeout = 2;
+  }
+  return Qnil;
+}
 
 
-/* VALUE */
-/* bossan_get_keepalive(VALUE self) */
-/* { */
-/*   return INT2NUM(is_keep_alive); */
-/* } */
+VALUE
+bossan_get_keepalive(VALUE self)
+{
+  return INT2NUM(is_keep_alive);
+}
 
 
 void
@@ -2002,8 +2003,8 @@ Init_bossan_ext(void)
   rb_define_module_function(server, "set_max_content_length", bossan_set_max_content_length, 1);
   rb_define_module_function(server, "get_max_content_length", bossan_get_max_content_length, 0);
 
-  /* rb_define_module_function(server, "set_keepalive", bossan_set_keepalive, 1); */
-  /* rb_define_module_function(server, "get_keepalive", bossan_get_keepalive, 0); */
+  rb_define_module_function(server, "set_keepalive", bossan_set_keepalive, 1);
+  rb_define_module_function(server, "get_keepalive", bossan_get_keepalive, 0);
 
   rb_require("stringio");
   StringIO = rb_const_get(rb_cObject, rb_intern("StringIO"));
