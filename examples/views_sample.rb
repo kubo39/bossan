@@ -1,4 +1,4 @@
-require 'bossan'
+require_relative '../lib/bossan'
 require 'sinatra/base'
 require 'haml'
 

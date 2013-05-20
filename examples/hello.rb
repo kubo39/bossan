@@ -1,4 +1,4 @@
-require '../lib/bossan'
+require_relative '../lib/bossan'
 
 Bossan.run('127.0.0.1', 8000, proc {|env|
   body = 'hello, world!'
