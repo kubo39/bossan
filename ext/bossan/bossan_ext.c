@@ -6,7 +6,6 @@
 #include "buffer.h"
 #include "client.h"
 
-#define MAX_FDS 1024 * 8
 #define ACCEPT_TIMEOUT_SECS 1
 #define SHORT_TIMEOUT_SECS 2
 #define WRITE_TIMEOUT_SECS 5
@@ -97,6 +96,7 @@ static int log_fd = -1; //access log
 static int is_keep_alive = 0; //keep alive support
 static int keep_alive_timeout = 5;
 
+static int max_fd = 1024 * 4;  // picoev max_fd size
 int max_content_length = 1024 * 1024 * 16; //max_content_length
 
 static VALUE StringIO;
@@ -1842,7 +1842,7 @@ bossan_run_loop(int argc, VALUE *argv, VALUE self)
   }
     
   /* init picoev */
-  picoev_init(MAX_FDS);
+  picoev_init(max_fd);
   /* create loop */
   main_loop = picoev_create_loop(60);
   loop_done = 1;
@@ -1909,6 +1909,26 @@ VALUE
 bossan_get_keepalive(VALUE self)
 {
   return INT2NUM(is_keep_alive);
+}
+
+
+VALUE 
+bossan_set_picoev_max_fd(VALUE self, VALUE args)
+{
+  int temp;
+  temp = NUM2INT(args);
+  if (temp <= 0) {
+    rb_raise(rb_eException, "max_fd value out of range ");
+  }
+  max_fd = temp;
+  return Qnil;
+}
+
+
+VALUE 
+bossan_get_picoev_max_fd(VALUE self)
+{
+  return INT2NUM(max_fd);
 }
 
 
@@ -1985,6 +2005,9 @@ Init_bossan_ext(void)
 
   rb_define_module_function(server, "set_keepalive", bossan_set_keepalive, 1);
   rb_define_module_function(server, "get_keepalive", bossan_get_keepalive, 0);
+
+  rb_define_module_function(server, "set_picoev_max_fd", bossan_set_picoev_max_fd, 1);
+  rb_define_module_function(server, "get_picoev_max_fd", bossan_get_picoev_max_fd, 0);
 
   rb_require("stringio");
   StringIO = rb_const_get(rb_cObject, rb_intern("StringIO"));
