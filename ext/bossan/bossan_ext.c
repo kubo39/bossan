@@ -11,7 +11,6 @@
 #define WRITE_TIMEOUT_SECS 5
 #define READ_LONG_TIMEOUT_SECS 5
 
-#define BACKLOG 1024
 #define MAX_BUFSIZE 1024 * 8
 #define INPUT_BUF_SIZE 1024 * 8
 
@@ -97,6 +96,7 @@ static int is_keep_alive = 0; //keep alive support
 static int keep_alive_timeout = 5;
 
 static int max_fd = 1024 * 4;  // picoev max_fd size
+static int backlog = 1024;  // backlog size
 int max_content_length = 1024 * 1024 * 16; //max_content_length
 
 static VALUE StringIO;
@@ -1686,7 +1686,7 @@ inet_listen(void)
   freeaddrinfo(servinfo); // all done with this structure
     
   // BACKLOG 1024
-  if (listen(listen_sock, BACKLOG) == -1) {
+  if (listen(listen_sock, backlog) == -1) {
     close(listen_sock);
     return -1;
   }
@@ -1740,7 +1740,7 @@ unix_listen(char *sock_name)
   umask(old_umask);
 
   // BACKLOG 1024
-  if (listen(listen_sock, BACKLOG) == -1) {
+  if (listen(listen_sock, backlog) == -1) {
     close(listen_sock);
     rb_raise(rb_eIOError, "server: failed to set backlog\n");
   }
@@ -1932,6 +1932,26 @@ bossan_get_picoev_max_fd(VALUE self)
 }
 
 
+VALUE
+bossan_set_backlog(VALUE self, VALUE args)
+{
+  int temp;
+  temp = NUM2INT(args);
+  if (temp <= 0) {
+    rb_raise(rb_eException, "backlog value out of range ");
+  }
+  backlog = temp;
+  return Qnil;
+}
+
+
+VALUE 
+bossan_get_backlog(VALUE self)
+{
+  return INT2NUM(backlog);
+}
+
+
 void
 Init_bossan_ext(void)
 {
@@ -2008,6 +2028,9 @@ Init_bossan_ext(void)
 
   rb_define_module_function(server, "set_picoev_max_fd", bossan_set_picoev_max_fd, 1);
   rb_define_module_function(server, "get_picoev_max_fd", bossan_get_picoev_max_fd, 0);
+
+  rb_define_module_function(server, "set_backlog", bossan_set_backlog, 1);
+  rb_define_module_function(server, "get_backlog", bossan_get_backlog, 0);
 
   rb_require("stringio");
   StringIO = rb_const_get(rb_cObject, rb_intern("StringIO"));
