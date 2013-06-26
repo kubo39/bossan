@@ -1,5 +1,6 @@
 require_relative '../lib/bossan'
 require 'test/unit'
+require 'uri'
 require 'net/http'
 
 class RackSpecTest < Test::Unit::TestCase
@@ -51,11 +52,19 @@ class RackSpecTest < Test::Unit::TestCase
     end
   end
 
-  def test_simple
-    response = nil
-    Net::HTTP.start("localhost", 8000){|http|
-      response = http.get("/")
+  def test_simple_get
+    response = Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT) {|http|
+      http.get("/")
     }
+
+    assert_equal("200", response.code)
+    assert_equal(ASSERT_RESPONSE, response.body)
+  end
+
+  def test_simple_post
+    response = Net::HTTP.post_form(URI.parse("http://#{DEFAULT_HOST}:#{DEFAULT_PORT}/"),
+                                   {'key1'=> 'value1', 'key2'=> 'value2'})
+
     assert_equal("200", response.code)
     assert_equal(ASSERT_RESPONSE, response.body)
   end
