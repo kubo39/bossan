@@ -53,6 +53,9 @@ class RackEnvSimpleTest < Test::Unit::TestCase
     assert_equal(env["SCRIPT_NAME"], "")
     assert_equal(env["QUERY_STRING"], "")
     assert_equal(env["REQUEST_METHOD"], "GET")
+    assert_equal(env["SERVER_NAME"], "localhost")
+    assert_equal(env["SERVER_PORT"], "8000")
+    assert_not_equal(env["HTTP_USER_AGENT"], "")
   ensure
     Process.kill(:INT, pid)
   end
