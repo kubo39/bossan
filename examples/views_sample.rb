@@ -8,4 +8,5 @@ class App < Sinatra::Base
   end
 end
 
-Bossan.run('127.0.0.1', 8000, App)
+Bossan.listen('127.0.0.1', 8000)
+Bossan.run(App)
