@@ -5,7 +5,7 @@ require 'bossan'
 require 'net/http'
 
 
-class RackEnvQueryTest < Test::Unit::TestCase
+class RackEnvSimpleQueryTest < Test::Unit::TestCase
 
   RESPONSE = ["Hello ", "world!"].freeze
   DEFAULT_HOST = "localhost"

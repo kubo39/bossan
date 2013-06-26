@@ -5,7 +5,7 @@ require 'pp'
 require 'net/http'
 
 
-class RackEnvSimpleTest < Test::Unit::TestCase
+class RackEnvSimpleGetTest < Test::Unit::TestCase
 
   RESPONSE = ["Hello ", "world!"].freeze
   DEFAULT_HOST = "localhost"

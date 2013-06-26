@@ -1,9 +1,8 @@
 require_relative '../lib/bossan'
 require 'test/unit'
-require 'uri'
 require 'net/http'
 
-class RackSpecTest < Test::Unit::TestCase
+class LongUrlTest < Test::Unit::TestCase
 
   ASSERT_RESPONSE = "Hello world!"
   RESPONSE = ["Hello ", "world!"].freeze

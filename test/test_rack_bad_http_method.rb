@@ -3,7 +3,7 @@ require 'test/unit'
 require 'socket'
 require 'net/http'
 
-class RackSpecTest < Test::Unit::TestCase
+class BadHttpMethodTest < Test::Unit::TestCase
 
   ASSERT_RESPONSE = "Hello world!"
   RESPONSE = ["Hello ", "world!"].freeze
