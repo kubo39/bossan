@@ -74,7 +74,8 @@ class BadHttpMethodTest < Test::Unit::TestCase
 
     @pid = fork do
       trap(:INT) { Bossan.stop }
-      Bossan.run(DEFAULT_HOST, DEFAULT_PORT, App.new)
+      Bossan.listen(DEFAULT_HOST, DEFAULT_PORT)
+      Bossan.run(App.new)
     end
     Process.detach @pid
     unless server_is_wake_up?

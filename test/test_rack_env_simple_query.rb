@@ -16,8 +16,8 @@ class RackEnvSimpleQueryTest < Test::Unit::TestCase
     pid = fork do
       r.close
       trap(:INT) { Bossan.stop }
-      Bossan.run(DEFAULT_HOST, DEFAULT_PORT,
-                 proc {|env|
+      Bossan.listen(DEFAULT_HOST, DEFAULT_PORT)
+      Bossan.run(proc {|env|
                    @env = env.dup
                    # I have no idea how to check this two values..
                    @env.delete "rack.input"
