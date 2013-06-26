@@ -1800,18 +1800,18 @@ bossan_access_log(VALUE self, VALUE args)
 
 
 static VALUE
-bossan_run_loop(int argc, VALUE *argv, VALUE self)
+bossan_listen(int argc, VALUE *argv, VALUE self)
 {
   int ret;
-  VALUE args1, args2, args3;
+  VALUE args1, args2;
 
-  rb_scan_args(argc, argv, "21", &args1, &args2, &args3);
+  rb_scan_args(argc, argv, "11", &args1, &args2);
 
   if(listen_sock > 0){
     rb_raise(rb_eException, "already set listen socket");
   }
 
-  if (argc == 3){
+  if (argc == 2){
     server_name = StringValuePtr(args1);
     server_port = NUM2INT(args2);
 
@@ -1825,11 +1825,9 @@ bossan_run_loop(int argc, VALUE *argv, VALUE self)
     server_port = (short)_port;
 
     ret = inet_listen();
-    rack_app = args3;
   } else {
     Check_Type(args1, T_STRING);
     ret = unix_listen(StringValuePtr(args1));
-    rack_app = args2;
   }
 
   if(ret < 0){
@@ -1840,6 +1838,14 @@ bossan_run_loop(int argc, VALUE *argv, VALUE self)
   if(listen_sock <= 0){
     rb_raise(rb_eTypeError, "not found listen socket");
   }
+
+  return Qnil;
+}
+
+static VALUE
+bossan_run_loop(VALUE self, VALUE args)
+{
+  rack_app = args;
     
   /* init picoev */
   picoev_init(max_fd);
@@ -2015,7 +2021,8 @@ Init_bossan_ext(void)
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
 
-  rb_define_module_function(server, "run", bossan_run_loop, -1);
+  rb_define_module_function(server, "listen", bossan_listen, -1);
+  rb_define_module_function(server, "run", bossan_run_loop, 1);
   rb_define_module_function(server, "stop", bossan_stop, 0);
   rb_define_module_function(server, "shutdown", bossan_stop, 0);
 
