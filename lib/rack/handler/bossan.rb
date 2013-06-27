@@ -15,7 +15,8 @@ module Rack
         options = DEFAULT_OPTIONS.merge(options)
         puts "* Listening on tcp://#{options[:Host]}:#{options[:Port]}"
 
-        ::Bossan.run(options[:Host], options[:Port], app)
+        ::Bossan.listen(options[:Host], options[:Port])
+        ::Bossan.run(app)
       end
 
       def self.valid_options
