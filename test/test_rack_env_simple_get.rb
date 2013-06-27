@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-require 'bossan'
 require 'test/unit'
 require 'pp'
 require 'net/http'
+require_relative '../lib/bossan'
 
 
 class RackEnvSimpleGetTest < Test::Unit::TestCase
