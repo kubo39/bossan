@@ -3,6 +3,7 @@ require 'active_record'
 require 'erb'
 
 enable :sessions
+set :views, File.dirname(__FILE__) + '/views'
 
 DATABASE = './db/sinatr.db'
 SECRET_KEY = 'development_key'
