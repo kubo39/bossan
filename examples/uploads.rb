@@ -55,6 +55,5 @@ app = ->(env) {
 
 
 Bossan.set_max_content_length(1024 * 1024 * 1024)
-Bossan.run('localhost',
-           8000,
-           app)
+Bossan.run('localhost', 8000)
+Bossan.listen(app)
