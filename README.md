@@ -31,14 +31,16 @@ simple rack app:
 ``` ruby
 require 'bossan'
 
-Bossan.run('127.0.0.1', 8000, proc {|env|
+Bossan.listen('127.0.0.1', 8000)
+Bossan.run(proc {|env|
+  body = ['hello, world!']        # Response body
   [
    200,          # Status code
    {             # Response headers
      'Content-Type' => 'text/html',
-     'Content-Length' => '13',
+     'Content-Length' => body.join.size.to_s,
    },
-   ['hello, world!']        # Response body
+   body
   ]
 })
 ```
