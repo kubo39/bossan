@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### v0.3.0
+
+(New Feature release. release 2013-06-28)
+
+* Add Bossan.listen method, for supporting pre-fork server
+
+* change API Bossan.run
+
 ### v0.2.0
 
 (New Feature release. release 2013-05-22)
