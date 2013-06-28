@@ -89,8 +89,6 @@ static VALUE rack_app; //rack app
 
 static char *log_path = NULL; //access log path
 static int log_fd = -1; //access log
-/* static char *error_log_path = NULL; //error log path */
-/* static int err_log_fd = -1; //error log */
 
 static int is_keep_alive = 0; //keep alive support
 static int keep_alive_timeout = 5;
@@ -1550,7 +1548,6 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 	  cli->header_done = 1;
 	  cli->response_closed = 1;
 	} else {
-	  /* rb_raise(rb_eException, "fatal error"); */
 	  write_error_log(__FILE__, __LINE__);
 	  cli->keep_alive = 0;
 	  cli->status_code = 500;
