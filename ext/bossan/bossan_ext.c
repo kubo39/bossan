@@ -858,33 +858,6 @@ header_value_cb (http_parser *p, const char *buf, size_t len, char partial)
 
 
 int
-request_path_cb (http_parser *p, const char *buf, size_t len, char partial)
-{
-  client_t *client = get_client(p);
-  request *req = client->req;
-  buffer_result ret = MEMORY_ERROR;
-  
-  if(req->path){
-    ret = write2buf(req->path, buf, len);
-  }else{
-    req->path = new_buffer(1024, LIMIT_PATH);
-    ret = write2buf(req->path, buf, len);
-  }
-  switch(ret){
-  case MEMORY_ERROR:
-    client->bad_request_code = 500;
-    return -1;
-  case LIMIT_OVER:
-    client->bad_request_code = 400;
-    return -1;
-  default:
-    break;
-  }
-  return 0;
-}
-
-
-int
 request_uri_cb (http_parser *p, const char *buf, size_t len, char partial)
 {
   client_t *client = get_client(p);
@@ -896,60 +869,6 @@ request_uri_cb (http_parser *p, const char *buf, size_t len, char partial)
   }else{
     req->uri = new_buffer(1024, LIMIT_URI);
     ret = write2buf(req->uri, buf, len);
-  }
-  switch(ret){
-  case MEMORY_ERROR:
-    client->bad_request_code = 500;
-    return -1;
-  case LIMIT_OVER:
-    client->bad_request_code = 400;
-    return -1;
-  default:
-    break;
-  }
-  return 0;
-}
-
-
-int
-query_string_cb (http_parser *p, const char *buf, size_t len, char partial)
-{
-  client_t *client = get_client(p);
-  request *req = client->req;
-  buffer_result ret = MEMORY_ERROR;
-
-  if(req->query_string){
-    ret = write2buf(req->query_string, buf, len);
-  }else{
-    req->query_string = new_buffer(1024*2, LIMIT_QUERY_STRING);
-    ret = write2buf(req->query_string, buf, len);
-  }
-  switch(ret){
-  case MEMORY_ERROR:
-    client->bad_request_code = 500;
-    return -1;
-  case LIMIT_OVER:
-    client->bad_request_code = 400;
-    return -1;
-  default:
-    break;
-  }
-  return 0;
-}
-
-
-int
-fragment_cb (http_parser *p, const char *buf, size_t len, char partial)
-{
-  client_t *client = get_client(p);
-  request *req = client->req;
-  buffer_result ret = MEMORY_ERROR;
-  
-  if(req->fragment){
-    ret = write2buf(req->fragment, buf, len);
-  }else{
-    req->fragment = new_buffer(1024, LIMIT_FRAGMENT);
-    ret = write2buf(req->fragment, buf, len);
   }
   switch(ret){
   case MEMORY_ERROR:
@@ -990,6 +909,86 @@ body_cb (http_parser *p, const char *buf, size_t len, char partial)
 }
 
 
+
+static int
+set_query(VALUE env, char *buf, int len)
+{
+  int c, ret, slen = 0;
+  char *s0;
+  VALUE obj;
+
+  s0 = buf;
+  while(len > 0){
+    c = *buf++;
+    if(c == '#'){
+      slen++;
+      break;
+    }
+    len--;
+    slen++;
+  }
+
+  if(slen > 1){
+    obj = rb_str_new(s0, slen-1);
+    if(unlikely(obj == NULL)){
+      return -1;
+    }
+    ret = rb_hash_aset(env, query_string, obj);
+        
+    if(unlikely(ret == -1)){
+      return -1;
+    }
+  }
+  return 1; 
+}
+
+
+static int
+set_path(VALUE env, char *buf, int len)
+{
+  int c, c1, slen;
+  char *s0, *t;
+  VALUE obj;
+
+  t = s0 = buf;
+  while(len > 0){
+    c = *buf++;
+    if(c == '%' && len > 2){
+      c = *buf++;
+      c1 = c;
+      c = *buf++;
+      c = hex2int(c1) * 16 + hex2int(c);
+      len -= 2;
+    }else if(c == '?'){
+      //stop
+      if(set_query(env, buf, len) == -1){
+	//Error
+	return -1;
+      }
+      break;
+    }else if(c == '#'){
+      //stop 
+      //ignore fragment
+      break;
+    }
+    *t++ = c;
+    len--;
+  }
+  //*t = 0;
+  slen = t - s0;
+  slen = urldecode(s0, slen);
+
+  obj = rb_str_new(s0, slen);
+
+  if(likely(obj != NULL)){
+    rb_hash_aset(env, path_info, obj);
+    return slen;
+  }else{
+    return -1;
+  }
+}
+
+
 int
 headers_complete_cb(http_parser *p)
 {
@@ -997,12 +996,19 @@ headers_complete_cb(http_parser *p)
   client_t *client = get_client(p);
   request *req = client->req;
   VALUE env = client->environ;
+  int ret;
   uint32_t i = 0;
+  uint64_t content_length = 0;
   header *h;
   
-  if(max_content_length < p->content_length){
-    client->bad_request_code = 413;
-    return -1;
+  if(p->content_length != ULLONG_MAX){
+    content_length = p->content_length;
+    if(max_content_length < p->content_length){
+      RDEBUG("max_content_length over %d/%d", (int)content_length, (int)max_content_length);
+      DEBUG("set request code %d", 413);
+      client->bad_request_code = 413;
+      return -1;
+    }
   }
 
   if (p->http_minor == 1) {
@@ -1012,26 +1018,37 @@ headers_complete_cb(http_parser *p)
   }    
   rb_hash_aset(env, server_protocol, obj);
     
-  if(req->path){
-    obj = getRbString(req->path);
-    rb_hash_aset(env, path_info, obj);
-    req->path = NULL;
+  if(likely(req->path)){
+    ret = set_path(env, req->path->buf, req->path->len);
+    free_buffer(req->path);
+    if(unlikely(ret == -1)){
+      //TODO Error
+      return -1;
+    }
+  }else{
+    ret = rb_hash_aset(env, path_info, rb_str_new2("/"));
   }
-  if(req->uri){
-    obj = getRbString(req->uri);
-    rb_hash_aset(env, request_uri, obj);
-    req->uri = NULL;
-  }
-  if(req->query_string){
-    obj = getRbString(req->query_string);
-    rb_hash_aset(env, query_string, obj);
-    req->query_string = NULL;
-  }
-  if(req->fragment){
-    obj = getRbString(req->fragment);
-    rb_hash_aset(env, http_fragment, obj);
-    req->fragment = NULL;
-  }
+  req->path = NULL;
+
+
+  /* if(req->uri){ */
+  /*   obj = getRbString(req->uri); */
+  /*   rb_hash_aset(env, request_uri, obj); */
+  /*   req->uri = NULL; */
+  /* } */
+
+  /* if(req->query_string){ */
+  /*   obj = getRbString(req->query_string); */
+  /*   rb_hash_aset(env, query_string, obj); */
+  /*   req->query_string = NULL; */
+  /* } */
+
+  /* if(req->fragment){ */
+  /*   obj = getRbString(req->fragment); */
+  /*   rb_hash_aset(env, http_fragment, obj); */
+  /*   req->fragment = NULL; */
+  /* } */
+
   for(i = 0; i < req->num_headers+1; i++){
     h = req->headers[i];
     if(h){
@@ -1128,10 +1145,7 @@ static http_parser_settings settings =
   {.on_message_begin = message_begin_cb
   ,.on_header_field = header_field_cb
   ,.on_header_value = header_value_cb
-  ,.on_path = request_path_cb
   ,.on_url = request_uri_cb
-  ,.on_fragment = fragment_cb
-  ,.on_query_string = query_string_cb
   ,.on_body = body_cb
   ,.on_headers_complete = headers_complete_cb
   ,.on_message_complete = message_complete_cb
