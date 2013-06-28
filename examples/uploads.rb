@@ -4,9 +4,6 @@ require 'tempfile'
 
 
 def view_file req
-  # p req
-  # p req.env['rack.input']
-
   tempfile = Tempfile.new('raw-upload.')
   req.env['rack.input'].each do |chunk|
     if chunk.respond_to?(:force_encoding)
@@ -21,11 +18,10 @@ def view_file req
   tempfile.flush
   tempfile.rewind
 
-  # return Rack::File.new(tempfile)
-  return Rack::Multipart::UploadedFile.new(tempfile, req.content_type, true)
-  # return Rack::Response.new(req.env["rack.input"],
-  #                           200,
-  #                           {"Content-Type" => req.content_type})
+  return Rack::Response.new(tempfile,
+                            200,
+                            { "Content-Length" => req.env["CONTENT_LENGTH"],
+                              "Content-Type" => 'image/jpeg'})
 end
 
 
@@ -38,7 +34,7 @@ def upload_file req
 EOF
                             ],
                             200,
-                            ).to_a
+                            )
 end
 
 
@@ -55,5 +51,5 @@ app = ->(env) {
 
 
 Bossan.set_max_content_length(1024 * 1024 * 1024)
-Bossan.run('localhost', 8000)
-Bossan.listen(app)
+Bossan.listen('localhost', 8000)
+Bossan.run(app)
