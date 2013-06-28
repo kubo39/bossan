@@ -1374,7 +1374,12 @@ process_rack_app(client_t *cli)
   // cli->response = [200, {}, []]
   cli->response = rb_funcall(rack_app, i_call, 1, args);
 
-  if(TYPE(cli->response) != T_ARRAY || RARRAY_LEN(cli->response) < 3) {
+  // to_arr
+  if (TYPE(cli->response) != T_ARRAY) {
+    cli->response = rb_funcall(cli->response, rb_intern("to_a"), 0);
+  }
+
+  if(RARRAY_LEN(cli->response) < 3) {
     return 0;
   }
   
@@ -1435,6 +1440,7 @@ static void
 call_rack_app(client_t *client, picoev_loop* loop)
 {
   int ret;
+
   if(!process_rack_app(client)){
     //Internal Server Error
     client->bad_request_code = 500;
