@@ -2,12 +2,12 @@
 
 #define LIMIT_MAX 1024 * 1024 * 1024
 
-buffer *
+buffer_t *
 new_buffer(size_t buf_size, size_t limit)
 {
-  buffer *buf;
-  buf = ruby_xmalloc(sizeof(buffer));
-  memset(buf, 0, sizeof(buffer));
+  buffer_t *buf;
+  buf = ruby_xmalloc(sizeof(buffer_t));
+  memset(buf, 0, sizeof(buffer_t));
   buf->buf = ruby_xmalloc(sizeof(char) * buf_size);
   buf->buf_size = buf_size;
   if(limit){
@@ -20,7 +20,7 @@ new_buffer(size_t buf_size, size_t limit)
 
 
 buffer_result
-write2buf(buffer *buf, const char *c, size_t l)
+write2buf(buffer_t *buf, const char *c, size_t l)
 {
   size_t newl;
   char *newbuf;
@@ -49,7 +49,7 @@ write2buf(buffer *buf, const char *c, size_t l)
 
 
 void
-free_buffer(buffer *buf)
+free_buffer(buffer_t *buf)
 {
   ruby_xfree(buf->buf);
   ruby_xfree(buf);
@@ -57,7 +57,7 @@ free_buffer(buffer *buf)
 
 
 VALUE
-getRbString(buffer *buf)
+getRbString(buffer_t *buf)
 {
   VALUE o;
   o = rb_str_new(buf->buf, buf->len);
@@ -67,7 +67,7 @@ getRbString(buffer *buf)
 
 
 char *
-getString(buffer *buf)
+getString(buffer_t *buf)
 {
   buf->buf[buf->len] = '\0';
   return buf->buf;

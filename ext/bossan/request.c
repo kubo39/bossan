@@ -1,5 +1,5 @@
+#include "bossan.h"
 #include "request.h"
-
 
 request *
 new_request(void)
@@ -10,53 +10,62 @@ new_request(void)
 }
 
 
-header *
-new_header(size_t fsize, size_t flimit, size_t vsize, size_t vlimit)
-{
-  header *h;
-  h = ruby_xmalloc(sizeof(header));
-  h->field = new_buffer(fsize, flimit);
-  h->value = new_buffer(vsize, vlimit);
-  return h;
-}
-
-
-void
-free_header(header *h)
-{
-  ruby_xfree(h);
-}
-
-
 void
 free_request(request *req)
 {
-  uint32_t i;
-  header *h;
-  if(req->path){
-    free_buffer(req->path);
-    req->path = NULL;
-  }
-  if(req->uri){
-    free_buffer(req->uri); 
-    req->uri = NULL;
-  }
-  if(req->query_string){
-    free_buffer(req->query_string); 
-    req->query_string = NULL;
-  }
-  if(req->fragment){
-    free_buffer(req->fragment); 
-    req->fragment = NULL;
-  }
-  for(i = 0; i < req->num_headers+1; i++){
-    h = req->headers[i];
-    if(h){
-      free_buffer(h->field);
-      free_buffer(h->value);
-      free_header(h);
-      req->headers[i] = NULL;
-    }
-  }
   ruby_xfree(req);
+}
+
+
+request_queue*
+new_request_queue(void)
+{
+  request_queue *q = NULL;
+  q = (request_queue *)ruby_xmalloc(sizeof(request_queue));
+  memset(q, 0, sizeof(request_queue));
+  GDEBUG("alloc req queue %p", q);
+  return q;
+}
+
+
+void
+free_request_queue(request_queue *q)
+{
+  request *req, *temp_req;
+  req = q->head;
+  while(req){
+    temp_req = req;
+    req = (request *)temp_req->next;
+    free_request(temp_req);
+  }
+  GDEBUG("dealloc req queue %p", q);
+  ruby_xfree(q);
+}
+
+void
+push_request(request_queue *q, request *req)
+{
+  if(q->tail){
+    q->tail->next = req;
+  }else{
+    q->head = req;
+  }
+  q->tail = req;
+  q->size++;
+}
+
+
+request*
+shift_request(request_queue *q)
+{
+  request *req, *temp_req;
+  req = q->head;
+  if(req == NULL){
+    return NULL;
+  }
+  temp_req = req;
+  req = req->next;
+  q->head = req;
+  q->size--;
+  return temp_req;
 }

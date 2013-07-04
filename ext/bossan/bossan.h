@@ -23,7 +23,7 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
-/* #define DEVELOP */
+#define DEVELOP
 
 #ifdef DEVELOP
 #define DEBUG(...) \

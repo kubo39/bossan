@@ -16,16 +16,40 @@
 
 #define LIMIT_SIZE 1024 * 512
 
+#define READ_TIMEOUT_SECS 30
+#define READ_BUF_SIZE 1024 * 64
+
 #define CRLF "\r\n"
 #define DELIM ": "
 
-#define MSG_500 ("HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/html\r\nServer:  " SERVER "\r\n\r\n<html><head><title>500 Internal Server Error</title></head><h1>Internal Server Error</h1><p>The server encountered an internal error and was unable to complete your request.  Either the server is overloaded or there is an error in the application.</p></html>\n")
+#define H_MSG_500 "HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/html\r\nServer:  " SERVER "\r\n\r\n"
 
-#define MSG_400 ("HTTP/1.0 400 Bad Request\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n<html><head><title>Bad Request</title></head><body><p>Bad Request.</p></body></html>")
+#define H_MSG_503 "HTTP/1.0 503 Service Unavailable\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
 
-#define MSG_411 ("HTTP/1.0 411 Length Required\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n<html><head><title>Length Required</title></head><body><p>Length Required.</p></body></html>")
+#define H_MSG_400 "HTTP/1.0 400 Bad Request\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
 
-#define MSG_413 ("HTTP/1.0 413 Request Entity Too Large\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n<html><head><title>Request Entity Too Large</title></head><body><p>Request Entity Too Large.</p></body></html>")
+#define H_MSG_408 "HTTP/1.0 408 Request Timeout\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
+
+#define H_MSG_411 "HTTP/1.0 411 Length Required\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
+
+#define H_MSG_413 "HTTP/1.0 413 Request Entity Too Large\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
+
+#define H_MSG_417 "HTTP/1.1 417 Expectation Failed\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
+
+
+#define MSG_500 H_MSG_500 "<html><head><title>500 Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>The server encountered an internal error and was unable to complete your request.  Either the server is overloaded or there is an error in the application.</p></body></html>"
+
+#define MSG_503 H_MSG_503 "<html><head><title>Service Unavailable</title></head><body><p>Service Unavailable.</p></body></html>"
+
+#define MSG_400 H_MSG_400 "<html><head><title>Bad Request</title></head><body><p>Bad Request.</p></body></html>"
+
+#define MSG_408 H_MSG_408 "<html><head><title>Request Timeout</title></head><body><p>Request Timeout.</p></body></html>"
+
+#define MSG_411 H_MSG_411 "<html><head><title>Length Required</title></head><body><p>Length Required.</p></body></html>"
+
+#define MSG_413 H_MSG_413 "<html><head><title>Request Entity Too Large</title></head><body><p>Request Entity Too Large.</p></body></html>"
+
+#define MSG_417 H_MSG_417 "<html><head><title>Expectation Failed</title></head><body><p>Expectation Failed.</p></body></html>"
 
 #define SERVER "bossan/0.3.0"
 
@@ -62,6 +86,12 @@ static VALUE rb_remote_port;
 static VALUE rack_input;
 static VALUE http_connection;
 
+static VALUE content_type;
+static VALUE content_length;
+
+static VALUE h_content_type;
+static VALUE h_content_length;
+
 static VALUE empty_string;
 
 static VALUE http_user_agent;
@@ -78,6 +108,8 @@ static VALUE i_seek;
 
 static const char *server_name = "127.0.0.1";
 static short server_port = 8000;
+
+static int prefix_len = 0;
 
 static int listen_sock;  // listen socket
 
@@ -108,7 +140,17 @@ typedef struct {
   uint32_t iov_size;
   uint32_t total;
   uint32_t total_size;
+  uint8_t sended;
+  VALUE temp1; //keep origin pointer
+  VALUE chunk_data; //keep chunk_data origin pointer
 } write_bucket;
+
+
+typedef enum {
+  STATUS_OK = 0,
+  STATUS_SUSPEND,
+  STATUS_ERROR 
+} response_status;
 
 
 static void
@@ -117,6 +159,11 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg);
 static void
 w_callback(picoev_loop* loop, int fd, int events, void* cb_arg);
 
+static void
+call_rack_app(client_t *client);
+
+static void
+prepare_call_rack(client_t *client);
 
 int
 open_log_file(const char *path)
@@ -177,40 +224,42 @@ write_log(const char *new_path, int fd, const char *data, size_t len)
 int 
 write_access_log(client_t *cli, int log_fd, const char *log_path)
 {
+  request *req = (cli);
+
   char buf[1024*4];
   if(log_fd > 0){
     VALUE obj;
     char *method, *path, *version, *ua, *referer;
         
-    obj = rb_hash_aref(cli->environ, request_method);
+    obj = rb_hash_aref(req->environ, request_method);
     if(obj != Qnil){
       method = StringValuePtr(obj);
     }else{
       method = "-";
     }
                 
-    obj = rb_hash_aref(cli->environ, path_info);
+    obj = rb_hash_aref(req->environ, path_info);
     if(obj != Qnil){
       path = StringValuePtr(obj);
     }else{
       path = "-";
     }
     
-    obj = rb_hash_aref(cli->environ, server_protocol);
+    obj = rb_hash_aref(req->environ, server_protocol);
     if(obj != Qnil){
       version = StringValuePtr(obj);
     }else{
       version = "-";
     }
 
-    obj = rb_hash_aref(cli->environ, http_user_agent);
+    obj = rb_hash_aref(req->environ, http_user_agent);
     if(obj != Qnil){
       ua = StringValuePtr(obj);
     }else{
       ua = "-";
     }
 
-    obj = rb_hash_aref(cli->environ, http_referer);
+    obj = rb_hash_aref(req->environ, http_referer);
     if(obj != Qnil){
       referer = StringValuePtr(obj);
     }else{
@@ -276,7 +325,8 @@ blocking_write(client_t *client, char *data, size_t len)
     default:
       data += (int)r;
       len -= r;
-      client->content_length += r;
+      /* client->content_length += r; */
+      client->write_bytes += r;
     }
   }
   return 1;
@@ -287,27 +337,41 @@ void
 send_error_page(client_t *client)
 {
   shutdown(client->fd, SHUT_RD);
-  if(client->header_done){
+  if(client->header_done || client->response_closed){
     //already sended response data
     //close connection
     return;
   }
-  int status = client->bad_request_code;
-  int r = status < 0 ? status * -1 : status;
-  client->status_code = r;
-  switch(r){
+
+  switch(client->status_code){
   case 400:
     blocking_write(client, MSG_400, sizeof(MSG_400) -1);
+    client->write_bytes -= sizeof(H_MSG_400) -1;
+    break;
+  case 408:
+    blocking_write(client, MSG_408, sizeof(MSG_408) -1);
+    client->write_bytes -= sizeof(H_MSG_408) -1;
     break;
   case 411:
     blocking_write(client, MSG_411, sizeof(MSG_411) -1);
+    client->write_bytes -= sizeof(H_MSG_411) -1;
     break;
   case 413:
     blocking_write(client, MSG_413, sizeof(MSG_413) -1);
+    client->write_bytes -= sizeof(H_MSG_413) -1;
+    break;
+  case 417:
+    blocking_write(client, MSG_417, sizeof(MSG_417) -1);
+    client->write_bytes -= sizeof(H_MSG_417) -1;
+    break;
+  case 503:
+    blocking_write(client, MSG_503, sizeof(MSG_503) -1);
+    client->write_bytes -= sizeof(H_MSG_503) -1;
     break;
   default:
     //Internal Server Error
     blocking_write(client, MSG_500, sizeof(MSG_500) -1);
+    client->write_bytes -= sizeof(H_MSG_500) -1;
     break;
   }
   client->keep_alive = 0;
@@ -333,12 +397,17 @@ static write_bucket *
 new_write_bucket(int fd, int cnt)
 {
   write_bucket *bucket;
+  iovec_t *iov;
+
   bucket = ruby_xmalloc(sizeof(write_bucket));
   memset(bucket, 0, sizeof(write_bucket));
 
   bucket->fd = fd;
-  bucket->iov = (iovec_t *)ruby_xmalloc(sizeof(iovec_t) * cnt);
+  iov = (iovec_t *)ruby_xmalloc(sizeof(iovec_t) * cnt);
+  memset(iov, 0, sizeof(iovec_t));
+  bucket->iov = iov;
   bucket->iov_size = cnt;
+  GDEBUG("allocate %p", bucket);
   return bucket;
 }
 
@@ -346,6 +415,7 @@ new_write_bucket(int fd, int cnt)
 static void
 free_write_bucket(write_bucket *bucket)
 {
+  GDEBUG("free %p", bucket);
   ruby_xfree(bucket->iov);
   ruby_xfree(bucket);
 }
@@ -363,6 +433,25 @@ set2bucket(write_bucket *bucket, char *buf, size_t len)
 
 
 static void
+set_chunked_data(write_bucket *bucket, char *lendata, size_t lenlen, char *data, size_t datalen)
+{
+  set2bucket(bucket, lendata, lenlen);
+  set2bucket(bucket, CRLF, 2);
+  set2bucket(bucket, data, datalen);
+  set2bucket(bucket, CRLF, 2);
+}
+
+
+static void
+set_last_chunked_data(write_bucket *bucket)
+{
+  set2bucket(bucket, "0", 1);
+  set2bucket(bucket, CRLF, 2);
+  set2bucket(bucket, CRLF, 2);
+}
+
+
+static void
 add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t vallen)
 {
   set2bucket(bucket, key, keylen);
@@ -372,28 +461,50 @@ add_header(write_bucket *bucket, char *key, size_t keylen, char *val, size_t val
 }
 
 
-static int
+#ifdef DEVELOP
+static void
+writev_log(write_bucket *data)
+{
+  int i = 0;
+  char *c;
+  size_t len;
+  for(; i < data->iov_cnt; i++){
+    c = data->iov[i].iov_base;
+    len = data->iov[i].iov_len;
+    printf("%.*s", (int)len, c); 
+  }
+}
+#endif
+
+
+static response_status
 writev_bucket(write_bucket *data)
 {
-  ssize_t w;
+  size_t w;
   int i = 0;
+#ifdef DEVELOP
+  BDEBUG("\nwritev_bucket fd:%d", data->fd);
+  printf("\x1B[34m");
+  writev_log(data);
+  printf("\x1B[0m\n");
+#endif
   w = writev(data->fd, data->iov, data->iov_cnt);
+  BDEBUG("writev fd:%d ret:%d total_size:%d", data->fd, (int)w, data->total);
   if(w == -1){
     //error
     if (errno == EAGAIN || errno == EWOULDBLOCK) { 
       // try again later
-      return 0;
+      return STATUS_SUSPEND;
     }else{
       //ERROR
 
       // TODO:
-      // raise exception from errno
-      /* rb_raise(rb_eIOError); */
-      write_error_log(__FILE__, __LINE__);
-      return -1;
+      /* write_error_log(__FILE__, __LINE__); */
+      return STATUS_ERROR;
     }
   }if(w == 0){
-    return 1;
+    data->sended = 1;
+    return STATUS_OK;
   }else{
     if(data->total > w){
       for(; i < data->iov_cnt;i++){
@@ -407,23 +518,55 @@ writev_bucket(write_bucket *data)
 	  break;
 	}
       }
-      data->total = data->total -w;
+      data->total = data->total - w;
       DEBUG("writev_bucket write %d progeress %d/%d \n", w, data->total, data->total_size);
       //resume
       // again later
       return writev_bucket(data);
     }
+    data->sended = 1;
   }
-  return 1;
+  data->sended = 1;
+  return STATUS_OK;
 }
 
 
-static int
-write_headers(client_t *client)
+static VALUE
+get_chunk_data(size_t datalen)
 {
-  if(client->header_done){
-    return 1;
+  char lendata[32];
+  int i = 0;
+  i = snprintf(lendata, 32, "%zx", datalen);
+  DEBUG("Transfer-Encoding chunk_size %s", lendata);
+  return rb_str_new(lendata, (ssize_t)i);
+}
+
+
+static void
+set_first_body_data(client_t *client, char *data, size_t datalen)
+{
+  write_bucket *bucket = client->bucket;
+  if(data){
+    if(client->chunked_response){
+      char *lendata  = NULL;
+      ssize_t len = 0;
+
+      VALUE chunk_data = get_chunk_data(datalen);
+      //TODO CHECK ERROR
+      lendata = StringValuePtr(chunk_data);
+      len = RSTRING_LEN(chunk_data);
+      set_chunked_data(bucket, lendata, len, data, datalen);
+      bucket->chunk_data = chunk_data;
+    }else{
+      set2bucket(bucket, data, datalen);
+    }
   }
+}
+
+
+static response_status
+write_headers(client_t *client, char *data, size_t datalen)
+{
   write_bucket *bucket;
   uint32_t i = 0, hlen = 0;
 
@@ -433,21 +576,23 @@ write_headers(client_t *client)
   ssize_t namelen;
   char *value = NULL;
   long valuelen;
+  response_status ret;
 
-  if(client->headers){
-    if (TYPE(client->headers) != T_HASH) {
-      return -1;
-    }
-    arr = rb_funcall(client->headers, i_keys, 0);
-    hlen = RARRAY_LEN(arr);
+  DEBUG("header write? %d", client->header_done);
+  if(client->header_done){
+    return STATUS_OK;
   }
+
+  if (TYPE(client->headers) != T_HASH) {
+    return STATUS_ERROR;
+  }
+
+  arr = rb_funcall(client->headers, i_keys, 0);
+  hlen = RARRAY_LEN(arr);
+
   bucket = new_write_bucket(client->fd, ( hlen * 4 * 2) + 32 );
   
   object = client->http_status;
-
-  if(TYPE(object) != T_STRING){
-    return -1;
-  }
 
   if(object){
     value = StringValuePtr(object);
@@ -456,27 +601,23 @@ write_headers(client_t *client)
     set2bucket(bucket, value, valuelen);
 
     add_header(bucket, "Server", 6,  SERVER, sizeof(SERVER) -1);
-    cache_time_update();
+    //cache_time_update();
     add_header(bucket, "Date", 4, (char *)http_time, 29);
-    if(client->keep_alive == 1){
-      // Keep-Alive
-      add_header(bucket, "Connection", 10, "Keep-Alive", 10);
-    } else {
-      add_header(bucket, "Connection", 10, "close", 5);
-    }
   }
 
   VALUE object1, object2;
   
   //write header
   if(client->headers){
+
+    if (TYPE(client->headers)!=T_HASH){
+      goto error;
+    }
+
     for(i=0; i < hlen; i++){
       object1 = rb_ary_entry(arr, i);
       Check_Type(object1, T_STRING);
 
-      if (TYPE(client->headers)!=T_HASH){
-	goto error;
-      }
       VALUE tmp = rb_funcall(client->headers, i_key, 1, object1);
       if (tmp == Qfalse){
 	goto error;
@@ -491,22 +632,25 @@ write_headers(client_t *client)
       value = StringValuePtr(object2);
       valuelen = RSTRING_LEN(object2);
 
+      if (strchr(name, ':') != 0) {
+	goto error;
+      }
+
       if (strchr(name, '\n') != 0 || strchr(value, '\n') != 0) {
-	rb_raise(rb_eArgError, "embedded newline in response header and value");
+	goto error;
       }
       
       if (!strcasecmp(name, "Server") || !strcasecmp(name, "Date")) {
  	continue;
       }
       
-      if (!strcasecmp(name, "Content-Length")) {
+      if (client->content_length_set != 1 && !strcasecmp(name, "Content-Length")) {
 	char *v = value;
 	long l = 0;
 	
 	errno = 0;
 	l = strtol(v, &v, 10);
 	if (*v || errno == ERANGE || l < 0) {
-	  rb_raise(rb_eArgError, "invalid content length");
 	  goto error;
 	}
 	client->content_length_set = 1;
@@ -515,12 +659,32 @@ write_headers(client_t *client)
     add_header(bucket, name, namelen, value, valuelen);
     }
   }
+
+  // check content_length_set
+  if(data && !client->content_length_set && client->http_parser->http_minor == 1){
+    //Transfer-Encoding chunked
+    add_header(bucket, "Transfer-Encoding", 17, "chunked", 7);
+    client->chunked_response = 1;
+  }
+
+  if(client->keep_alive == 1){
+    // Keep-Alive
+    add_header(bucket, "Connection", 10, "Keep-Alive", 10);
+  } else {
+    add_header(bucket, "Connection", 10, "close", 5);
+  }
   set2bucket(bucket, CRLF, 2);
 
+  // write_body
   client->bucket = bucket;
-  int ret = writev_bucket(bucket);
-  if(ret != 0){
+  set_first_body_data(client, data, datalen);
+
+  ret = writev_bucket(bucket);
+  if(ret != STATUS_SUSPEND){
     client->header_done = 1;
+    if(ret == STATUS_OK && data){
+      client->write_bytes += datalen;
+    }
     // clear
     free_write_bucket(bucket);
     client->bucket = NULL;
@@ -532,9 +696,9 @@ write_headers(client_t *client)
     free_write_bucket(bucket);
     client->bucket = NULL;
   }
-  return -1;
+  return STATUS_ERROR;
 }
-  
+
 
 static void
 close_response(client_t *client)
@@ -545,22 +709,10 @@ close_response(client_t *client)
 }
 
 
-static VALUE
-collect_body(VALUE i, VALUE str, int argc, VALUE *argv)
-{
-  if(argc < 1) {
-    return Qnil;
-  }
-  rb_str_concat(str, argv[0]);
-  return Qnil;
-}
-
-
-static int
+static response_status
 processs_write(client_t *client)
 {
   VALUE iterator;
-  VALUE v_body;
   VALUE item;
   char *buf;
   size_t buflen;
@@ -568,66 +720,102 @@ processs_write(client_t *client)
   int ret;
 
   // body
-  iterator = client->response_iter;
+  DEBUG("process_write start");
+  iterator = client->response;
 
   if(iterator != Qnil){
-    if (TYPE(iterator) != T_ARRAY || RARRAY_LEN(iterator) != 3){
-      return -1;
+
+    if(!rb_respond_to(iterator, i_each)){
+      return STATUS_ERROR;
     }
 
-    v_body = rb_ary_entry(iterator, 2);
+    while ( (item = rb_funcall(iterator, rb_intern("shift"), 0)) != Qnil) {
 
-    if(!rb_respond_to(v_body, i_each)){
-      return -1;
-    }
+      buf = StringValuePtr(item);
+      buflen = RSTRING_LEN(item);
 
-    VALUE v_body_str = rb_str_new2("");
-    rb_block_call(v_body, i_each, 0, NULL, collect_body, v_body_str);
-    if(rb_respond_to(v_body, i_close)) {
-      rb_funcall(v_body, i_close, 0);
-    }
+      //write
+      if(client->chunked_response){
+	  bucket = new_write_bucket(client->fd, 4);
+	  if(bucket == NULL){
+	    return STATUS_ERROR;
+	  }
+	  char *lendata = NULL;
+	  ssize_t len = 0;
 
-    buf = StringValuePtr(v_body_str);
-    buflen = RSTRING_LEN(v_body_str);
+	  VALUE chunk_data = get_chunk_data(buflen);
+	  //TODO CHECK ERROR
+	  lendata = StringValuePtr(chunk_data);
+	  len = RSTRING_LEN(chunk_data);
 
-    bucket = new_write_bucket(client->fd, 1);
-    set2bucket(bucket, buf, buflen);
-    ret = writev_bucket(bucket);
-    if(ret <= 0){
-      return ret;
-    }
-    //mark
-    client->write_bytes += buflen;
-    //check write_bytes/content_length
-    if(client->content_length_set){
-      if(client->content_length <= client->write_bytes){
-	// all done
-	/* break; */
+	  set_chunked_data(bucket, lendata, len, buf, buflen);
+	  bucket->chunk_data = chunk_data;
+      } else {
+	bucket = new_write_bucket(client->fd, 1);
+	if(bucket == NULL){
+	  return STATUS_ERROR;
+	}
+	set2bucket(bucket, buf, buflen);
+      }
+      bucket->temp1 = item;
+
+      ret = writev_bucket(bucket);
+      if(ret != STATUS_OK){
+	client->bucket = bucket;
+	return ret;
+      }
+
+      free_write_bucket(bucket);
+      //mark
+      client->write_bytes += buflen;
+      //check write_bytes/content_length
+      if(client->content_length_set){
+	if(client->content_length <= client->write_bytes){
+	  // all done
+	  break;
+	}
       }
     }
+
+    if(client->chunked_response){
+      DEBUG("write last chunk");
+      //last packet
+      bucket = new_write_bucket(client->fd, 3);
+      if(bucket == NULL){
+	return STATUS_ERROR;
+      }
+      set_last_chunked_data(bucket);
+      writev_bucket(bucket);
+      free_write_bucket(bucket);
+    }
+
     close_response(client);
   }
-  return 1;
+  return STATUS_OK;
 }
 
 
-int
+response_status
 process_body(client_t *client)
 {
-  int ret;
+  response_status ret;
   write_bucket *bucket;
   if(client->bucket){
     bucket = (write_bucket *)client->bucket;
     //retry send
     ret = writev_bucket(bucket);
     
-    if(ret != 0){
+    if(ret == STATUS_OK){
       client->write_bytes += bucket->total_size;
       //free
       free_write_bucket(bucket);
       client->bucket = NULL;
+    }else if(ret == STATUS_ERROR){
+      free_write_bucket(bucket);
+      client->bucket = NULL;
+      return ret;
     }else{
-      return 0;
+      return ret;
     }
   }
   ret = processs_write(client);
@@ -635,45 +823,56 @@ process_body(client_t *client)
 }
 
 
-static int
+static response_status
 start_response_write(client_t *client)
 {
   VALUE iterator;
-  VALUE dict;
   VALUE item;
   char *buf;
   ssize_t buflen;
+  response_status ret;
     
   iterator = client->response;
   client->response_iter = iterator;
 
   if (TYPE(iterator) != T_ARRAY){
-    return -1;
-  }
-  assert(3 == RARRAY_LEN(iterator));
-
-  dict = rb_ary_entry(iterator, 1);
-
-  if (TYPE(dict) != T_HASH){
-    return -1;
+    return STATUS_ERROR;
   }
 
-  /* DEBUG("start_response_write buflen %d \n", buflen); */
-  return write_headers(client);
+  item = rb_funcall(iterator, rb_intern("shift"), 0);
+  Check_Type(item, T_STRING);
+  DEBUG("client %p :fd %d", client, client->fd);
+  if(item != Qnil) {
+    //write string only
+    buf = StringValuePtr(item);
+    buflen = RSTRING_LEN(item);
+
+    /* DEBUG("status_code %d body:%.*s", client->status_code, (int)buflen, buf); */
+    ret = write_headers(client, buf, buflen);
+    //TODO when ret == STATUS_SUSPEND keep item
+    return ret;
+  }else{
+    if (item == NULL) {
+      //Stop Iteration
+      RDEBUG("WARN iter item == NULL");
+      return write_headers(client, NULL, 0);
+    }
+  }
+  return STATUS_ERROR;
 }
 
 
-int
+response_status
 response_start(client_t *client)
 {
-  int ret;
-  enable_cork(client);
+  response_status ret;
+  /* enable_cork(client); */
   if(client->status_code == 304){
-    return write_headers(client);
+    return write_headers(client, NULL, 0);
   }
   ret = start_response_write(client);
-  DEBUG("start_response_write ret = %d \n", ret);
-  if(ret > 0){
+  DEBUG("start_response_write ret = %d :fd = %d\n", ret, client->fd);
+  if(ret == STATUS_OK){
     // sended header
     ret = processs_write(client);
   }
@@ -702,21 +901,21 @@ key_upper(char *s, const char *key, size_t len)
 
 
 static int
-write_body2mem(client_t *client, const char *buffer, size_t buffer_len)
+write_body2mem(request *req, const char *buffer, size_t buf_len)
 {
   VALUE obj;
 
-  rb_funcall((VALUE)client->body, i_write, 1, rb_str_new(buffer, buffer_len));
-  client->body_readed += buffer_len;
-  DEBUG("write_body2mem %d bytes \n", buffer_len);
-  return client->body_readed;
+  rb_funcall(req->body, i_write, 1, rb_str_new(buffer, buf_len));
+  req->body_readed += buf_len;
+  DEBUG("write_body2mem %d bytes \n", buf_len);
+  return req->body_readed;
 }
 
 
 static int
-write_body(client_t *cli, const char *buffer, size_t buffer_len)
+write_body(request *req, const char *buffer, size_t buffer_len)
 {
-  return write_body2mem(cli, buffer, buffer_len);
+  return write_body2mem(req, buffer, buffer_len);
 }
 
 
@@ -771,141 +970,110 @@ get_client(http_parser *p)
 }
 
 
-int
-message_begin_cb(http_parser *p)
+static request *
+get_current_request(http_parser *p)
 {
-  return 0;
+  client_t *client = (client_t *)p->data;
+  return client->current_req;
 }
 
 
-int
-header_field_cb (http_parser *p, const char *buf, size_t len, char partial)
+VALUE
+new_environ(client_t *client)
 {
-  uint32_t i;
-  header *h;
-  client_t *client = get_client(p);
-  request *req = client->req;
-  char temp[len];
-  
-  buffer_result ret = MEMORY_ERROR;
-  if (req->last_header_element != FIELD){
-    if(LIMIT_REQUEST_FIELDS <= req->num_headers){
-      client->bad_request_code = 400;
-      return -1;
-    }
-    req->num_headers++;
-  }
-  i = req->num_headers;
-  h = req->headers[i];
-  
-  key_upper(temp, buf, len);
-  if(h){
-    ret = write2buf(h->field, temp, len);
-  }else{
-    req->headers[i] = h = new_header(128, LIMIT_REQUEST_FIELD_SIZE, 1024, LIMIT_REQUEST_FIELD_SIZE);
-    rack_header_type type = check_header_type(temp);
-    if(type == OTHER){
-      ret = write2buf(h->field, "HTTP_", 5);
-    }
-    ret = write2buf(h->field, temp, len);
-    //printf("%s \n", getString(h->field));
-  }
-  switch(ret){
-  case MEMORY_ERROR:
-    client->bad_request_code = 500;
-    return -1;
-  case LIMIT_OVER:
-    client->bad_request_code = 400;
-    return -1;
-  default:
-    break;
-  }
-  req->last_header_element = FIELD;
-  return 0;
+  VALUE object, environ;
+  char r_port[7];
+
+  environ = rb_hash_new();
+  rb_gc_register_address(&environ);
+
+  rb_hash_aset(environ, version_key, version_val);
+  rb_hash_aset(environ, scheme_key, scheme_val);
+  rb_hash_aset(environ, errors_key, errors_val);
+  rb_hash_aset(environ, multithread_key, multithread_val);
+  rb_hash_aset(environ, multiprocess_key, multiprocess_val);
+  rb_hash_aset(environ, run_once_key, run_once_val);
+  rb_hash_aset(environ, script_key, empty_string);
+  rb_hash_aset(environ, server_name_key, server_name_val);
+  rb_hash_aset(environ, server_port_key, server_port_val);
+
+  object = rb_str_new2(client->remote_addr);
+  rb_hash_aset(environ, rb_remote_addr, object);
+
+  sprintf(r_port, "%d", client->remote_port);
+  object = rb_str_new2(r_port);
+  rb_hash_aset(environ, rb_remote_port, object);
+  return environ;
 }
 
 
-int
-header_value_cb (http_parser *p, const char *buf, size_t len, char partial)
+static int
+hex2int(int i)
 {
-  uint32_t i;
-  header *h;
-  client_t *client = get_client(p);
-  request *req = client->req;
+  i = toupper(i);
+  i = i - '0';
+  if(i > 9){
+    i = i - 'A' + '9' + 1;
+  }
+  return i;
+}
+
+
+static int
+urldecode(char *buf, int len)
+{
+  int c, c1;
+  char *s0, *t;
+  t = s0 = buf;
+  while(len >0){
+    c = *buf++;
+    if(c == '%' && len > 2){
+      c = *buf++;
+      c1 = c;
+      c = *buf++;
+      c = hex2int(c1) * 16 + hex2int(c);
+      len -= 2;
+    }
+    *t++ = c;
+    len--;
+  }
+  *t = 0;
+  return t - s0;
+}
+
+
+static VALUE
+concat_string(VALUE o, const char *buf, size_t len)
+{
+  VALUE ret;
+  size_t l;
+  char *dest, *origin;
     
-  buffer_result ret = MEMORY_ERROR;
-  i = req->num_headers;
-  h = req->headers[i];
-  
-  if(h){
-    ret = write2buf(h->value, buf, len);
+  l = RSTRING_LEN(o);
+
+  ret = rb_str_new((char*)0, l + len);
+  if(ret == NULL){
+    return ret;
   }
-  switch(ret){
-  case MEMORY_ERROR:
-    client->bad_request_code = 500;
-    return -1;
-  case LIMIT_OVER:
-    client->bad_request_code = 400;
-    return -1;
-  default:
-    break;
-  }
-  req->last_header_element = VAL;
-  return 0;
+  dest = StringValuePtr(ret);
+  origin = StringValuePtr(o);
+  memcpy(dest, origin , l);
+  memcpy(dest + l, buf , len);
+  return ret;
 }
 
-
-int
-request_uri_cb (http_parser *p, const char *buf, size_t len, char partial)
+static int
+replace_env_key(VALUE dict, VALUE old_key, VALUE new_key)
 {
-  client_t *client = get_client(p);
-  request *req = client->req;
-  buffer_result ret = MEMORY_ERROR;
-    
-  if(req->uri){
-    ret = write2buf(req->uri, buf, len);
-  }else{
-    req->uri = new_buffer(1024, LIMIT_URI);
-    ret = write2buf(req->uri, buf, len);
+  int ret = 1;
+
+  VALUE value = rb_hash_aref(dict, old_key);
+  if(value) {
+    rb_hash_aset(dict, old_key, Qnil);
+    ret = rb_hash_aset(dict, new_key, value);
   }
-  switch(ret){
-  case MEMORY_ERROR:
-    client->bad_request_code = 500;
-    return -1;
-  case LIMIT_OVER:
-    client->bad_request_code = 400;
-    return -1;
-  default:
-    break;
-  }
-  return 0;
+  return ret;
 }
-
-
-int
-body_cb (http_parser *p, const char *buf, size_t len, char partial)
-{
-  client_t *client = get_client(p);
-  if(max_content_length <= client->body_readed + len){
-    client->bad_request_code = 413;
-    return -1;
-  }
-  if(client->body_type == BODY_TYPE_NONE){
-    if(client->body_length == 0){
-      //Length Required
-      client->bad_request_code = 411;
-      return -1;
-    }
-    //default memory stream
-    DEBUG("client->body_length %d \n", client->body_length);
-    client->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
-    client->body_type = BODY_TYPE_BUFFER;
-    DEBUG("BODY_TYPE_BUFFER \n");
-  }
-  write_body(client, buf, len);
-  return 0;
-}
-
 
 
 static int
@@ -987,24 +1155,212 @@ set_path(VALUE env, char *buf, int len)
 }
 
 
+static VALUE
+get_http_header_key(const char *s, int len)
+{
+  VALUE obj;
+  char *dest;
+  char c;
+
+  obj = rb_str_new("", len + prefix_len);
+  dest = (char*)StringValuePtr(obj);
+
+  *dest++ = 'H';
+  *dest++ = 'T';
+  *dest++ = 'T';
+  *dest++ = 'P';
+  *dest++ = '_';
+
+  while(len--) {
+    c = *s++;
+    if(c == '-'){
+      *dest++ = '_';
+    }else if(c >= 'a' && c <= 'z'){
+      *dest++ = c - ('a'-'A');
+    }else{
+      *dest++ = c;
+    }
+  }
+  return obj;
+}
+
+
+uintptr_t
+get_current_msec(void)
+{
+  time_t sec = 0;
+  uintptr_t msec = 0;
+  struct timeval tv;
+
+  gettimeofday(&tv, NULL);
+
+  sec = tv.tv_sec;
+  msec = tv.tv_usec / 1000;
+
+  return (uintptr_t) sec * 1000 + msec;
+}
+
+
+int
+message_begin_cb(http_parser *p)
+{
+  request *req;
+  VALUE environ;
+
+  DEBUG("message_begin_cb");
+    
+  client_t *client = get_client(p);
+
+  req = new_request();
+  req->start_msec = current_msec;
+  client->current_req = req;
+  environ = new_environ(client);
+  client->complete = 0;
+  req->environ = environ;
+  push_request(client->request_queue, client->current_req);
+  return 0;
+}
+
+
+int
+header_field_cb (http_parser *p, const char *buf, size_t len)
+{
+  VALUE env, obj;
+  request *req = get_current_request(p);
+  
+  if (req->last_header_element != FIELD){
+    env = req->environ;
+    if(LIMIT_REQUEST_FIELDS <= req->num_headers){
+      req->bad_request_code = 400;
+      return -1;
+    }
+    rb_hash_aset(env, req->field, req->value);
+    req->field = NULL;
+    req->value = NULL;
+    req->num_headers++;
+  }
+  
+  if(likely(req->field == NULL)){
+    obj = get_http_header_key(buf, len);
+  }else{
+    char temp[len];
+    key_upper(temp, buf, len);
+    obj = concat_string(req->field, temp, len);
+  }
+
+  if(unlikely(obj == NULL)){
+    req->bad_request_code = 500;
+    return -1;
+  }
+
+  if(unlikely(RSTRING_LEN(obj) > LIMIT_REQUEST_FIELD_SIZE)){
+    req->bad_request_code = 400;
+    return -1;
+  }
+
+  req->field = obj;
+  req->last_header_element = FIELD;
+  return 0;
+}
+
+
+int
+header_value_cb (http_parser *p, const char *buf, size_t len)
+{
+  request *req = get_current_request(p);
+  VALUE obj;
+    
+  if(likely(req->value== NULL)){
+    obj = rb_str_new(buf, len);
+  }else{
+    obj = concat_string(req->value, buf, len);
+  }
+  
+  if(unlikely(obj == NULL)){
+    req->bad_request_code = 500;
+    return -1; 
+  }
+  if(unlikely(RSTRING_LEN(obj) > LIMIT_REQUEST_FIELD_SIZE)){
+    req->bad_request_code = 400;
+    return -1;
+  }
+  req->value = obj;
+  req->last_header_element = VAL;
+  return 0;
+}
+
+
+int
+request_uri_cb (http_parser *p, const char *buf, size_t len)
+{
+  request *req = get_current_request(p);
+  buffer_result ret = MEMORY_ERROR;
+    
+  if(req->path){
+    ret = write2buf(req->path, buf, len);
+  }else{
+    req->path = new_buffer(1024, LIMIT_URI);
+    ret = write2buf(req->path, buf, len);
+  }
+  switch(ret){
+  case MEMORY_ERROR:
+    req->bad_request_code = 500;
+    return -1;
+  case LIMIT_OVER:
+    req->bad_request_code = 400;
+    return -1;
+  default:
+    break;
+  }
+  return 0;
+}
+
+
+int
+body_cb (http_parser *p, const char *buf, size_t len)
+{
+  request *req = get_current_request(p);
+
+  if(max_content_length <= req->body_readed + len){
+    req->bad_request_code = 413;
+    return -1;
+  }
+  if(req->body_type == BODY_TYPE_NONE){
+    if(req->body_length == 0){
+      //Length Required
+      req->bad_request_code = 411;
+      return -1;
+    }
+    //default memory stream
+    DEBUG("client->body_length %d \n", req->body_length);
+    req->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
+    req->body_type = BODY_TYPE_BUFFER;
+    DEBUG("BODY_TYPE_BUFFER \n");
+  }
+  write_body(req, buf, len);
+  return 0;
+}
+
+
 int
 headers_complete_cb(http_parser *p)
 {
-  VALUE obj, key;
+  VALUE obj;
   client_t *client = get_client(p);
-  request *req = client->req;
-  VALUE env = client->environ;
+  request *req = client->current_req;
+  VALUE env = req->environ;
   int ret;
-  uint32_t i = 0;
   uint64_t content_length = 0;
-  header *h;
+
+  DEBUG("should keep alive %d", http_should_keep_alive(p));
+  client->keep_alive = http_should_keep_alive(p);
   
   if(p->content_length != ULLONG_MAX){
     content_length = p->content_length;
     if(max_content_length < p->content_length){
       RDEBUG("max_content_length over %d/%d", (int)content_length, (int)max_content_length);
       DEBUG("set request code %d", 413);
-      client->bad_request_code = 413;
+      req->bad_request_code = 413;
       return -1;
     }
   }
@@ -1015,7 +1371,7 @@ headers_complete_cb(http_parser *p)
     obj = rb_str_new2("HTTP/1.0");
   }    
   rb_hash_aset(env, server_protocol, obj);
-    
+
   if(likely(req->path)){
     ret = set_path(env, req->path->buf, req->path->len);
     free_buffer(req->path);
@@ -1028,34 +1384,26 @@ headers_complete_cb(http_parser *p)
   }
   req->path = NULL;
 
+  //Last header
+  if(likely(req->field && req->value)){
+    DEBUG("here1");
+    rb_hash_aset(env, req->field, req->value);
+    DEBUG("here2");
 
-  /* if(req->uri){ */
-  /*   obj = getRbString(req->uri); */
-  /*   rb_hash_aset(env, request_uri, obj); */
-  /*   req->uri = NULL; */
-  /* } */
-
-  /* if(req->query_string){ */
-  /*   obj = getRbString(req->query_string); */
-  /*   rb_hash_aset(env, query_string, obj); */
-  /*   req->query_string = NULL; */
-  /* } */
-
-  /* if(req->fragment){ */
-  /*   obj = getRbString(req->fragment); */
-  /*   rb_hash_aset(env, http_fragment, obj); */
-  /*   req->fragment = NULL; */
-  /* } */
-
-  for(i = 0; i < req->num_headers+1; i++){
-    h = req->headers[i];
-    if(h){
-      key = getRbString(h->field);
-      obj = getRbString(h->value);
-      rb_hash_aset(env, key, obj);
-      free_header(h);
-      req->headers[i] = NULL;
+    req->field = NULL;
+    req->value = NULL;
+    if(unlikely(ret == -1)){
+      return -1;
     }
+  }
+
+  ret = replace_env_key(env, h_content_type, content_type);
+  if(unlikely(ret == -1)){
+    return -1;
+  }
+  ret = replace_env_key(env, h_content_length, content_length);
+  if(unlikely(ret == -1)){
+    return -1;
   }
      
   switch(p->method){
@@ -1123,9 +1471,9 @@ headers_complete_cb(http_parser *p)
     
   rb_hash_aset(env, request_method, obj);
 
-  ruby_xfree(req);
-  client->req = NULL;
-  client->body_length = p->content_length;
+  req->body_length = p->content_length;
+
+  DEBUG("fin headers_complete_cb");
   return 0;
 }
 
@@ -1135,6 +1483,7 @@ message_complete_cb (http_parser *p)
 {
   client_t *client = get_client(p);
   client->complete = 1;
+  client->upgrade = p->upgrade;
   return 0;
 }
 
@@ -1156,33 +1505,10 @@ init_parser(client_t *cli, const char *name, const short port)
   VALUE object;
   char r_port[7];
 
-  cli->http = (http_parser*)ruby_xmalloc(sizeof(http_parser));
-  memset(cli->http, 0, sizeof(http_parser));
-    
-  cli->environ = rb_hash_new();
-
-  rb_hash_aset(cli->environ, version_key, version_val);
-  rb_hash_aset(cli->environ, scheme_key, scheme_val);
-  rb_hash_aset(cli->environ, errors_key, errors_val);
-  rb_hash_aset(cli->environ, multithread_key, multithread_val);
-  rb_hash_aset(cli->environ, multiprocess_key, multiprocess_val);
-  rb_hash_aset(cli->environ, run_once_key, run_once_val);
-  rb_hash_aset(cli->environ, script_key, script_val);
-  rb_hash_aset(cli->environ, server_name_key, server_name_val);
-  rb_hash_aset(cli->environ, server_port_key, server_port_val);
-
-  // query_string
-  rb_hash_aset(cli->environ, query_string, empty_string);
-
-  object = rb_str_new2(cli->remote_addr);
-  rb_hash_aset(cli->environ, rb_remote_addr, object);
-
-  sprintf(r_port, "%d", cli->remote_port);
-  object = rb_str_new2(r_port);
-  rb_hash_aset(cli->environ, rb_remote_port, object);
-
-  http_parser_init(cli->http, HTTP_REQUEST);
-  cli->http->data = cli;
+  cli->http_parser = (http_parser*)ruby_xmalloc(sizeof(http_parser));
+  memset(cli->http_parser, 0, sizeof(http_parser));
+  http_parser_init(cli->http_parser, HTTP_REQUEST);
+  cli->http_parser->data = cli;
 
   return 0;
 }
@@ -1191,7 +1517,7 @@ init_parser(client_t *cli, const char *name, const short port)
 size_t
 execute_parse(client_t *cli, const char *data, size_t len)
 {
-  return http_parser_execute(cli->http, &settings, data, len);
+  return http_parser_execute(cli->http_parser, &settings, data, len);
 }
 
 
@@ -1206,6 +1532,8 @@ void
 setup_static_env(char *name, int port)
 {
   char vport[7];
+
+  prefix_len = strlen("HTTP_");
 
   version_val = rb_obj_freeze(rb_ary_new3(2, INT2FIX(1), INT2FIX(1)));
   version_key = rb_obj_freeze(rb_str_new2("rack.version"));
@@ -1246,6 +1574,12 @@ setup_static_env(char *name, int port)
   rack_input = rb_obj_freeze(rb_str_new2("rack.input"));
   http_connection = rb_obj_freeze(rb_str_new2("HTTP_CONNECTION"));
 
+  content_type = rb_obj_freeze(rb_str_new2("CONTENT_TYPE"));
+  content_length = rb_obj_freeze(rb_str_new2("CONTENT_LENGTH"));
+
+  h_content_type = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_TYPE"));
+  h_content_length = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_LENGTH"));
+
   http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
   http_referer = rb_obj_freeze(rb_str_new2("HTTP_REFERER"));
 }
@@ -1262,10 +1596,10 @@ setsig(int sig, void* handler)
 }
 
 
-void 
+void
 setup_listen_sock(int fd)
 {
-  int on = 1, r;
+  int on = 1, r = -1;
   r = setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &on, sizeof(on));
   assert(r == 0);
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
@@ -1278,21 +1612,26 @@ setup_sock(int fd)
 {
   int on = 1, r;
   r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
-  assert(r == 0);
+  //assert(r == 0);
 
   // 60 + 30 * 4
-  on = 300;
-  r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &on, sizeof(on));
-  assert(r == 0);
-  on = 30;
-  r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &on, sizeof(on));
-  assert(r == 0);
-  on = 4;
-  r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &on, sizeof(on));
-  assert(r == 0);
-
+  /* on = 300; */
+  /* r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &on, sizeof(on)); */
+  /* assert(r == 0); */
+  /* on = 30; */
+  /* r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &on, sizeof(on)); */
+  /* assert(r == 0); */
+  /* on = 4; */
+  /* r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &on, sizeof(on)); */
+  /* assert(r == 0); */
+#if linux
+  r = 0; // Use accept4() on Linux
+#else
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
-  assert(r == 0);
+#endif
+  /* r = fcntl(fd, F_SETFL, O_NONBLOCK); */
+  /* assert(r == 0); */
+  return r;
 }
 
 
@@ -1323,55 +1662,110 @@ new_client_t(int client_fd, char *remote_addr, uint32_t remote_port)
   client->fd = client_fd;
   client->remote_addr = remote_addr;
   client->remote_port = remote_port;
-  client->req = new_request();
-  client->body_type = BODY_TYPE_NONE;
+  /* client->req = new_request(); */
+  client->request_queue = new_request_queue();
+  /* client->body_type = BODY_TYPE_NONE; */
   return client;
 }
 
 
 static void
-clean_cli(client_t *client)
+clean_client(client_t *client)
 {
+  VALUE environ;
+  uintptr_t end, delta_msec = 0;
+
+  request *req = client->current_req;
+
   write_access_log(client, log_fd, log_path); 
-  if(client->req){
-    free_request(client->req);
-    client->req = NULL;
+  if(req){
+    environ = req->environ;
+    end = current_msec;
+    if (req->start_msec > 0){
+      delta_msec = end - req->start_msec;
+    }
+  } else {
+    if (client->status_code != 408) {
+      environ = new_environ(client);
+    }
   }
-  DEBUG("close environ %p \n", client->environ);
 
-  // force clear
-  client->environ = rb_hash_new();
-
-  if(client->http != NULL){
-    ruby_xfree(client->http);
-    client->http = NULL;
+  if (req == NULL) {
+    goto init;
   }
+
+  DEBUG("status_code:%d env:%p", client->status_code, req->environ);
+  if (req->body) {
+    /* rb_p(req->body); */
+    /* free_buffer(req->body); */
+    req->body = NULL;
+  }
+  free_request(req);
+ init:
+  client->current_req = NULL;
+  client->header_done = 0;
+  client->response_closed = 0;
+  client->chunked_response = 0;
+  client->content_length_set = 0;
+  client->content_length = 0;
+  client->write_bytes = 0;
 }
 
 
 static void
-close_conn(client_t *cli, picoev_loop* loop)
+close_client(client_t *client)
 {
-  client_t *new_client;
-  if(!cli->response_closed){
-    close_response(cli);
-  }
-  picoev_del(loop, cli->fd);
+  client_t *new_client = NULL;
 
-  DEBUG("picoev_del client:%p fd:%d \n", cli, cli->fd);
-  clean_cli(cli);
-  if(!cli->keep_alive){
-    close(cli->fd);
-    DEBUG("close client:%p fd:%d \n", cli, cli->fd);
-  }else{
-    disable_cork(cli);
-    new_client = new_client_t(cli->fd, cli->remote_addr, cli->remote_port);
-    rb_gc_register_address(&new_client->environ);
+  if (!client->response_closed) {
+    close_response(client);
+  }
+  DEBUG("start close client:%p fd:%d status_code %d", client, client->fd, client->status_code);
+
+  if (picoev_is_active(main_loop, client->fd)) {
+    DEBUG("picoev_del client:%p fd:%d", client, client->fd);
+  }
+
+  clean_client(client);
+
+  DEBUG("remain http pipeline size :%d", client->request_queue->size);
+  if (client->request_queue->size > 0) {
+    /* if (check_status_code(client) > 0) { */
+    //process pipeline
+    prepare_call_rack(client);
+    call_rack_app(client);
+    /* } */
+    return;
+  }
+
+  if (client->http_parser != NULL) {
+    ruby_xfree(client->http_parser);
+  }
+
+  free_request_queue(client->request_queue);
+  if (!client->keep_alive) {
+    close(client->fd);
+    BDEBUG("close client:%p fd:%d", client, client->fd);
+  } else {
+    BDEBUG("keep alive client:%p fd:%d", client, client->fd);
+    new_client = new_client_t(client->fd, client->remote_addr, client->remote_port);
     new_client->keep_alive = 1;
     init_parser(new_client, server_name, server_port);
     picoev_add(main_loop, new_client->fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)new_client);
   }
-  ruby_xfree(cli);
+  //clear old client
+  ruby_xfree(client);
+}
+
+
+static void init_main_loop(void)
+{
+  if (main_loop == NULL) {
+    /* init picoev */
+    picoev_init(max_fd);
+    /* create loop */
+    main_loop = picoev_create_loop(60);
+  }
 }
 
 
@@ -1380,46 +1774,54 @@ process_rack_app(client_t *cli)
 {
   VALUE args;
   char *status;
+  request *req = cli->current_req;
+  VALUE* response_arr;
 
-  args = cli->environ;
+  args = req->environ;
 
   // cli->response = [200, {}, []]
-  cli->response = rb_funcall(rack_app, i_call, 1, args);
+  response_arr = rb_funcall(rack_app, i_call, 1, args);
 
   // to_arr
-  if (TYPE(cli->response) != T_ARRAY) {
-    cli->response = rb_funcall(cli->response, rb_intern("to_a"), 0);
+  if (TYPE(response_arr) != T_ARRAY) {
+    response_arr = rb_funcall(response_arr, rb_intern("to_a"), 0);
   }
 
-  if(RARRAY_LEN(cli->response) < 3) {
+  if(RARRAY_LEN(response_arr) < 3) {
     return 0;
   }
   
-  VALUE* response_ary = RARRAY_PTR(cli->response);
+  VALUE* response_as_arr = RARRAY_PTR(response_arr);
 
   /* rb_p(cli->response); */
 
-  if (TYPE(response_ary[0]) != T_FIXNUM ||
-      TYPE(response_ary[1]) != T_HASH) {
+  if (TYPE(response_as_arr[0]) != T_FIXNUM ||
+      TYPE(response_as_arr[1]) != T_HASH) {
     return 0;
   }
 
-  cli->status_code = NUM2INT(response_ary[0]);
-  cli->headers = response_ary[1];
+  cli->status_code = NUM2INT(response_as_arr[0]);
+  cli->headers = response_as_arr[1];
+  cli->response = response_as_arr[2];
+
+  if (cli->response_closed) {
+    //closed
+    close_client(cli);
+    return 1;
+  }
 
   errno = 0;
   /* printf("status code: %d\n", cli->status_code); */
 
   char buff[256];
-  sprintf(buff, "HTTP/1.1 %d\r\n", cli->status_code);
+  sprintf(buff, "HTTP/1.%d %d\r\n", cli->http_parser->http_minor, cli->status_code); // TODO: add reasons
   cli->http_status = rb_str_new(buff, strlen(buff));
 
   //check response
   if(cli->response && cli->response == Qnil){
     write_error_log(__FILE__, __LINE__);
-    rb_raise(rb_eException, "response must be a iter or sequence object");
+    return 0;
   }
-
   return 1;
 }
 
@@ -1434,86 +1836,278 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     YDEBUG("** w_callback timeout ** \n");
     //timeout
     client->keep_alive = 0;
-    close_conn(client, loop);
+    close_client(client);
 
   } else if ((events & PICOEV_WRITE) != 0) {
     ret = process_body(client);
-    picoev_set_timeout(loop, client->fd, WRITE_TIMEOUT_SECS);
+    /* picoev_set_timeout(loop, client->fd, WRITE_TIMEOUT_SECS); */
     DEBUG("process_body ret %d \n", ret);
     if(ret != 0){
       //ok or die
-      close_conn(client, loop);
+      close_client(client);
     }
   }
 }
 
 
-static void
-call_rack_app(client_t *client, picoev_loop* loop)
+static int
+check_http_expect(client_t *client)
 {
+  VALUE c;
+  char *val = NULL;
   int ret;
+  request *req = client->current_req;
+
+  if (client->http_parser->http_minor == 1) {
+    ///TODO CHECK
+    c = rb_hash_aref(req->environ, rb_str_new2("HTTP_EXPECT"));
+    if (c != Qnil) {
+      val = StringValuePtr(c);
+      if (!strncasecmp(val, "100-continue", 12)) {
+	ret = write(client->fd, "HTTP/1.1 100 Continue\r\n\r\n", 25);
+	if (ret < 0) {
+	  //fail
+	  client->keep_alive = 0;
+	  client->status_code = 500;
+	  send_error_page(client);
+	  close_client(client);
+	  return -1;
+	}
+      } else {
+	//417
+	client->keep_alive = 0;
+	client->status_code = 417;
+	send_error_page(client);
+	close_client(client);
+	return -1;
+      }
+    }
+    return 1;
+  }
+  return 0;
+}
+
+
+static void
+call_rack_app(client_t *client)
+{
+  response_status ret;
+  request *req = client->current_req;
 
   if(!process_rack_app(client)){
     //Internal Server Error
-    client->bad_request_code = 500;
+    req->bad_request_code = 500;
     send_error_page(client);
-    close_conn(client, loop);
+    close_client(client);
     return;
   }
 
   ret = response_start(client);
   switch(ret){
-  case -1:
+  case STATUS_ERROR:
     // Internal Server Error
-    client->bad_request_code = 500;
+    client->status_code = 500;
     send_error_page(client);
-    close_conn(client, loop);
+    close_client(client);
     return;
-  case 0:
+  case STATUS_SUSPEND:
+  /* case STATUS_OK: */
     // continue
     // set callback
     DEBUG("set write callback %d \n", ret);
     //clear event
-    picoev_del(loop, client->fd);
-    picoev_add(loop, client->fd, PICOEV_WRITE, WRITE_TIMEOUT_SECS, w_callback, (void *)client);
+    picoev_del(main_loop, client->fd);
+    picoev_add(main_loop, client->fd, PICOEV_WRITE, WRITE_TIMEOUT_SECS, w_callback, (void *)client);
     return;
   default:
     // send OK
-    close_conn(client, loop);
+    close_client(client);
   }
+}
+
+
+static inline void
+set_current_request(client_t *client)
+{
+  request *req;
+  req = shift_request(client->request_queue);
+  client->current_req = req;
 }
 
 
 static void
 prepare_call_rack(client_t *client)
 {
-  VALUE input, object, c;
-  char *val;
+  request *req = NULL;
+  VALUE input, object;
 
-  if(client->body_type == BODY_TYPE_BUFFER) {
-    rb_funcall((VALUE)client->body, i_seek, 1, INT2NUM(0));
-    rb_hash_aset(client->environ, rack_input, (VALUE)client->body);
+  set_current_request(client);    
+  req = client->current_req;
+
+  //check Expect
+  if (check_http_expect(client) < 0) {
+    return;
+  }
+
+  if(req->body_type == BODY_TYPE_BUFFER) {
+    rb_funcall((VALUE)req->body, i_seek, 1, INT2NUM(0));
+    rb_hash_aset(req->environ, rack_input, (VALUE)req->body);
   } else {
     object = rb_str_new2("");
     input = rb_funcall(StringIO, i_new, 1, object);
     rb_gc_register_address(&input);
-    rb_hash_aset(client->environ, rack_input, input);
-    client->body = input;
+    rb_hash_aset(req->environ, rack_input, input);
+    req->body = input;
   }
 
-  if(is_keep_alive){
-    //support keep-alive
-    c = rb_hash_aref(client->environ, http_connection);
-    if(c != Qnil){
-      val = StringValuePtr(c);
-      if(!strcasecmp(val, "keep-alive")){
-	client->keep_alive = 1;
-      }else{
-	client->keep_alive = 0;
-      }
-    }else{
-      client->keep_alive = 0;
+  if(!is_keep_alive){
+    client->keep_alive = 0;
+  }
+}
+
+
+static void
+set_bad_request_code(client_t *client, int status_code)
+{
+  request *req;
+  req = client->request_queue->tail;
+  req->bad_request_code = status_code;
+  DEBUG("set bad request code %d", status_code);
+}
+
+
+static int
+check_status_code(client_t *client)
+{
+  request *req;
+  req = client->request_queue->head;
+  if (req && req->bad_request_code > 200) {
+    //error
+    //shift
+    DEBUG("bad status code %d", req->bad_request_code);
+    set_current_request(client);
+    client->status_code = req->bad_request_code;
+    send_error_page(client);
+    close_client(client);
+    return -1;
+  }
+  return 1;
+}
+
+
+static int
+set_read_error(client_t *client, int status_code)
+{
+  client->keep_alive = 0;
+  if (status_code == 0) {
+    // bad request
+    status_code = 400;
+  }
+  if (client->request_queue->size > 0) {
+    //piplining
+    set_bad_request_code(client, status_code);
+    return 1;
+  } else {
+    client->status_code = status_code;
+    send_error_page(client);
+    close_client(client);
+    return -1;
+  }
+}
+
+
+static int
+read_timeout(int fd, client_t *client)
+{
+  RDEBUG("** read timeout fd:%d", fd);
+  //timeout
+  return set_read_error(client, 408);
+}
+
+
+static int
+compare_key(VALUE env, char *key, char *compare)
+{
+  int ret = -1;
+  char *val = NULL;
+
+  VALUE c = rb_hash_aref(env, key);
+  if (c) {
+    val = StringValuePtr(c);
+    ret = strcasecmp(val, compare);
+  }
+  return ret;
+}
+
+
+static int
+parse_http_request(int fd, client_t *client, char *buf, ssize_t r)
+{
+  int nread = 0;
+  request *req = NULL;
+
+  BDEBUG("fd:%d \n%.*s", fd, (int)r, buf);
+  nread = execute_parse(client, buf, r);
+  BDEBUG("read request fd %d readed %d nread %d", fd, (int)r, nread);
+
+  req = client->current_req;
+
+  if (client->upgrade) {
+    //TODO  New protocol
+    if (parse_new_protocol(req, buf, r, nread) == -1) {
+      return set_read_error(client, req->bad_request_code);
     }
+  } else {
+    if (nread != r || req->bad_request_code > 0) {
+      if (req == NULL) {
+	DEBUG("fd %d bad_request code 400", fd);
+	return set_read_error(client, 400);
+      } else {
+	DEBUG("fd %d bad_request code %d", fd,  req->bad_request_code);
+	return set_read_error(client, req->bad_request_code);
+      }
+    }
+  }
+  if (parser_finish(client) > 0) {
+    return 1;
+  }
+  return 0;
+}
+
+
+static int
+read_request(picoev_loop *loop, int fd, client_t *client, char call_time_update)
+{
+  char buf[READ_BUF_SIZE];
+  ssize_t r;
+
+  if (!client->keep_alive) {
+    picoev_set_timeout(loop, fd, READ_TIMEOUT_SECS);
+  }
+
+  r = read(client->fd, buf, sizeof(buf));
+  switch (r) {
+  case 0: 
+    return set_read_error(client, 503);
+  case -1:
+    // Error
+    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+      // try again later
+      return 0;
+    } else {
+      // Fatal error
+      client->keep_alive = 0;
+      if (errno == ECONNRESET) {
+	client->header_done = 1;
+	client->response_closed = 1;
+      }
+      return set_read_error(client, 500);
+    }
+  default:
+    if (call_time_update) {
+      cache_time_update();
+    }
+    return parse_http_request(fd, client, buf, r);
   }
 }
 
@@ -1522,84 +2116,22 @@ static void
 r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 {
   client_t *cli = ( client_t *)(cb_arg);
+  int finish = 0;
+
   if ((events & PICOEV_TIMEOUT) != 0) {
-    YDEBUG("** r_callback timeout ** \n");
-    //timeout
-    cli->keep_alive = 0;
-    close_conn(cli, loop);
+    finish = read_timeout(fd, cli);
+
   } else if ((events & PICOEV_READ) != 0) {
-    RDEBUG("ready read \n");
-    /* update timeout, and read */
-    int finish = 0, nread;
-    char buf[INPUT_BUF_SIZE];
-    ssize_t r;
-    if(!cli->keep_alive){
-      picoev_set_timeout(loop, cli->fd, SHORT_TIMEOUT_SECS);
-    }
-    r = read(cli->fd, buf, sizeof(buf));
-    switch (r) {
-    case 0: 
-      cli->keep_alive = 0;
-      cli->status_code = 500; // ??? 503 ??
-      send_error_page(cli);
-      close_conn(cli, loop);
-      return;
-    case -1: /* error */
-      if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
-	break;
-      } else { /* fatal error */
-	if (cli->keep_alive && errno == ECONNRESET) {
-	  cli->keep_alive = 0;
-	  cli->status_code = 500;
-	  cli->header_done = 1;
-	  cli->response_closed = 1;
-	} else {
-	  write_error_log(__FILE__, __LINE__);
-	  cli->keep_alive = 0;
-	  cli->status_code = 500;
-	  if(errno != ECONNRESET){
-	    send_error_page(cli);
-	  }else{
-	    cli->header_done = 1;
-	    cli->response_closed = 1;
-	  }
-	}
-	close_conn(cli, loop);
-	return;
-      }
-      break;
-    default:
-      RDEBUG("read request fd %d bufsize %d \n", cli->fd, r);
-      nread = execute_parse(cli, buf, r);
-
-      if(cli->bad_request_code > 0){
-	RDEBUG("fd %d bad_request code %d \n", cli->fd,  cli->bad_request_code);
-	send_error_page(cli);
-	close_conn(cli, loop);
-	return;
-      }
-      if( nread != r ){
-	// parse error
-	DEBUG("fd %d parse error %d \n", cli->fd, cli->bad_request_code);
-	cli->bad_request_code = 400;
-	send_error_page(cli);
-	close_conn(cli, loop);
-	return;
-      }
-      RDEBUG("parse ok, fd %d %d nread \n", cli->fd, nread);
-
-      if(parser_finish(cli) > 0){
-	finish = 1;
-      }
-      break;
-    }
-    
-    if(finish == 1){
-      /* picoev_del(loop, cli->fd); */
+    finish = read_request(loop, fd, cli, 0);
+  }
+  if(finish == 1){
+    picoev_del(loop, cli->fd);
+    RDEBUG("****:::here %d", cli->fd);
+    if (check_status_code(cli) > 0) {
       prepare_call_rack(cli);
-      call_rack_app(cli, loop);
-      return;
+      call_rack_app(cli);
     }
+    return;
   }
 }
 
@@ -1612,6 +2144,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   struct sockaddr_in client_addr;
   char *remote_addr;
   uint32_t remote_port;
+  int finish = 0;
 
   if ((events & PICOEV_TIMEOUT) != 0) {
     // time out
@@ -1619,25 +2152,39 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     return;
   }else if ((events & PICOEV_READ) != 0) {
     socklen_t client_len = sizeof(client_addr);
+    for(;;) {
 #ifdef linux
-    client_fd = accept4(fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+      client_fd = accept4(fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
 #else
-    client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
+      client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
 #endif
-    if (client_fd != -1) {
-      DEBUG("accept fd %d \n", client_fd);
-      setup_sock(client_fd);
-      remote_addr = inet_ntoa(client_addr.sin_addr);
-      remote_port = ntohs(client_addr.sin_port);
-      client = new_client_t(client_fd, remote_addr, remote_port);
-      rb_gc_register_address(&client->environ);
-      init_parser(client, server_name, server_port);
-      picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
-    }else{
-      if (errno != EAGAIN && errno != EWOULDBLOCK) {
-	write_error_log(__FILE__, __LINE__);
-	// die
-	loop_done = 0;
+      if (client_fd != -1) {
+	DEBUG("accept fd %d \n", client_fd);
+
+	setup_sock(client_fd);
+
+	remote_addr = inet_ntoa(client_addr.sin_addr);
+	remote_port = ntohs(client_addr.sin_port);
+	client = new_client_t(client_fd, remote_addr, remote_port);
+	init_parser(client, server_name, server_port);
+
+	finish = read_request(loop, fd, client, 1);
+	if (finish == 1) {
+	  if (check_status_code(client) > 0) {
+	    //current request ok
+	    prepare_call_rack(client);
+	    call_rack_app(client);
+	  }
+	} else if (finish == 0) {
+	  picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
+	}
+      } else {
+	if (errno != EAGAIN && errno != EWOULDBLOCK) {
+	  write_error_log(__FILE__, __LINE__);
+	  // die
+	  loop_done = 0;
+	}
+	break;
       }
     }
   }
@@ -1697,7 +2244,6 @@ inet_listen(void)
   if (p == NULL)  {
     close(listen_sock);
     rb_raise(rb_eIOError, "server: failed to bind\n");
-    return -1;
   }
 
   freeaddrinfo(servinfo); // all done with this structure
@@ -1865,9 +2411,9 @@ bossan_run_loop(VALUE self, VALUE args)
   rack_app = args;
     
   /* init picoev */
-  picoev_init(max_fd);
+  /* picoev_init(max_fd); */
   /* create loop */
-  main_loop = picoev_create_loop(60);
+  init_main_loop();
   loop_done = 1;
   
   setsig(SIGPIPE, sigpipe_cb);
@@ -2008,6 +2554,11 @@ Init_bossan_ext(void)
   rb_gc_register_address(&rb_remote_port);
   rb_gc_register_address(&rack_input);
   rb_gc_register_address(&http_connection);
+
+  rb_gc_register_address(&h_content_type);
+  rb_gc_register_address(&h_content_length);
+  rb_gc_register_address(&content_type);
+  rb_gc_register_address(&content_length);
 
   rb_gc_register_address(&http_user_agent);
   rb_gc_register_address(&http_referer);

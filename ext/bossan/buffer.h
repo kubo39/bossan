@@ -18,25 +18,30 @@ typedef struct {
   size_t buf_size;
   size_t len;
   size_t limit;
-} buffer;
+} buffer_t;
 
-buffer *
+buffer_t *
 new_buffer(size_t buf_size, size_t limit);
 
 buffer_result
-write2buf(buffer *buf, const char *c, size_t  l);
+write2buf(buffer_t *buf, const char *c, size_t  l);
 
 void
-free_buffer(buffer *buf);
+free_buffer(buffer_t *buf);
 
 VALUE
-getRbString(buffer *buf);
+getRbString(buffer_t *buf);
 
 char *
-getString(buffer *buf);
-
+getString(buffer_t *buf);
 
 #endif
+
+
+
+
+
+
 
 
 
