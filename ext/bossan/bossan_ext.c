@@ -709,6 +709,13 @@ close_response(client_t *client)
 }
 
 
+static VALUE
+rb_body_iterator(VALUE iterator)
+{
+  return rb_funcall(iterator, rb_intern("next"), 0);
+}
+
+
 static response_status
 processs_write(client_t *client)
 {
@@ -721,15 +728,13 @@ processs_write(client_t *client)
 
   // body
   DEBUG("process_write start");
-  iterator = client->response;
+  iterator = client->response_iter;
 
-  if(iterator != Qnil){
-
-    if(!rb_respond_to(iterator, i_each)){
-      return STATUS_ERROR;
-    }
-
-    while ( (item = rb_funcall(iterator, rb_intern("shift"), 0)) != Qnil) {
+  if(iterator != Qnil) {
+    /* while ( item = rb_funcall(iterator, rb_intern("next"), 0) ) { */
+    for(;;) {
+      item = rb_protect(rb_body_iterator, iterator, NULL);
+      if (item == Qnil) break;
 
       buf = StringValuePtr(item);
       buflen = RSTRING_LEN(item);
@@ -832,14 +837,14 @@ start_response_write(client_t *client)
   ssize_t buflen;
   response_status ret;
     
-  iterator = client->response;
-  client->response_iter = iterator;
-
-  if (TYPE(iterator) != T_ARRAY){
+  if (TYPE(client->response) != T_ARRAY){
     return STATUS_ERROR;
   }
 
-  item = rb_funcall(iterator, rb_intern("shift"), 0);
+  iterator = rb_funcall(client->response, rb_intern("each"), 0);
+  client->response_iter = iterator;
+
+  item = rb_funcall(iterator, rb_intern("next"), 0);
   Check_Type(item, T_STRING);
   DEBUG("client %p :fd %d", client, client->fd);
   if(item != Qnil) {
@@ -985,7 +990,6 @@ new_environ(client_t *client)
   char r_port[7];
 
   environ = rb_hash_new();
-  rb_gc_register_address(&environ);
 
   rb_hash_aset(environ, version_key, version_val);
   rb_hash_aset(environ, scheme_key, scheme_val);
@@ -1204,7 +1208,6 @@ int
 message_begin_cb(http_parser *p)
 {
   request *req;
-  VALUE environ;
 
   DEBUG("message_begin_cb");
     
@@ -1213,9 +1216,9 @@ message_begin_cb(http_parser *p)
   req = new_request();
   req->start_msec = current_msec;
   client->current_req = req;
-  environ = new_environ(client);
   client->complete = 0;
-  req->environ = environ;
+  req->environ = new_environ(client);
+  rb_gc_register_address(&req->environ);
   push_request(client->request_queue, client->current_req);
   return 0;
 }
@@ -1344,7 +1347,7 @@ body_cb (http_parser *p, const char *buf, size_t len)
 int
 headers_complete_cb(http_parser *p)
 {
-  VALUE obj;
+  VALUE obj = NULL;
   client_t *client = get_client(p);
   request *req = client->current_req;
   VALUE env = req->environ;
@@ -1353,7 +1356,7 @@ headers_complete_cb(http_parser *p)
 
   DEBUG("should keep alive %d", http_should_keep_alive(p));
   client->keep_alive = http_should_keep_alive(p);
-  
+
   if(p->content_length != ULLONG_MAX){
     content_length = p->content_length;
     if(max_content_length < p->content_length){
@@ -1368,8 +1371,9 @@ headers_complete_cb(http_parser *p)
     obj = rb_str_new2("HTTP/1.1");
   } else {
     obj = rb_str_new2("HTTP/1.0");
-  }    
-  rb_hash_aset(env, server_protocol, obj);
+  }
+  RDEBUG("%p", (VALUE)rb_hash_aref(env, server_protocol));
+  rb_hash_aset(env, server_protocol, obj);  // segv
 
   if(likely(req->path)){
     ret = set_path(env, req->path->buf, req->path->len);
@@ -1379,15 +1383,13 @@ headers_complete_cb(http_parser *p)
       return -1;
     }
   }else{
-    ret = rb_hash_aset(env, path_info, rb_str_new2("/"));
+    rb_hash_aset(env, path_info, rb_str_new2("/"));
   }
   req->path = NULL;
 
   //Last header
   if(likely(req->field && req->value)){
-    DEBUG("here1");
     rb_hash_aset(env, req->field, req->value);
-    DEBUG("here2");
 
     req->field = NULL;
     req->value = NULL;
@@ -1469,7 +1471,6 @@ headers_complete_cb(http_parser *p)
   }
     
   rb_hash_aset(env, request_method, obj);
-
   req->body_length = p->content_length;
 
   DEBUG("fin headers_complete_cb");
@@ -1793,7 +1794,7 @@ get_reason_phrase(int status_code)
   } else if (status_code == 305) {
      return "Use Proxy";
   } else if (status_code == 307) {
-     "Temporary Redirect";
+     return "Temporary Redirect";
   } else if (status_code == 400) {
      return "Bad Request";
   } else if (status_code == 401) {
@@ -1880,6 +1881,7 @@ process_rack_app(client_t *cli)
   cli->status_code = NUM2INT(response_as_arr[0]);
   cli->headers = response_as_arr[1];
   cli->response = response_as_arr[2];
+  rb_gc_register_address(cli->response);
 
   if (cli->response_closed) {
     //closed
@@ -1896,6 +1898,7 @@ process_rack_app(client_t *cli)
   char buff[256];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
   cli->http_status = rb_str_new(buff, strlen(buff));
+  rb_gc_register_address(&cli->http_status);
 
   //check response
   if(cli->response && cli->response == Qnil){
@@ -2206,7 +2209,7 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
   }
   if(finish == 1){
     picoev_del(loop, cli->fd);
-    RDEBUG("****:::here %d", cli->fd);
+    RDEBUG("del fd: %d", cli->fd);
     if (check_status_code(cli) > 0) {
       prepare_call_rack(cli);
       call_rack_app(cli);
