@@ -716,6 +716,13 @@ rb_body_iterator(VALUE iterator)
 }
 
 
+static VALUE
+ret_qnil(void)
+{
+  return Qnil;
+}
+
+
 static response_status
 processs_write(client_t *client)
 {
@@ -733,7 +740,7 @@ processs_write(client_t *client)
   if(iterator != Qnil) {
     /* while ( item = rb_funcall(iterator, rb_intern("next"), 0) ) { */
     for(;;) {
-      item = rb_protect(rb_body_iterator, iterator, NULL);
+      item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL);
       if (item == Qnil) break;
 
       buf = StringValuePtr(item);
