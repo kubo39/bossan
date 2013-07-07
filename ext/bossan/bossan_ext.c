@@ -94,8 +94,33 @@ static VALUE h_content_length;
 
 static VALUE empty_string;
 
+static VALUE http_10;
+static VALUE http_11;
+
+static VALUE http_delete;
+static VALUE http_get;
+static VALUE http_head;
+static VALUE http_post;
+static VALUE http_put;
+static VALUE http_connect;
+static VALUE http_options;
+static VALUE http_trace;
+static VALUE http_copy;
+static VALUE http_lock;
+static VALUE http_mkcol;
+static VALUE http_move;
+static VALUE http_propfind;
+static VALUE http_proppatch;
+static VALUE http_unlock;
+static VALUE http_report;
+static VALUE http_mkactivity;
+static VALUE http_checkout;
+static VALUE http_merge;
+
 static VALUE http_user_agent;
 static VALUE http_referer;
+
+static VALUE http_expect;
 
 static VALUE i_keys;
 static VALUE i_call;
@@ -105,6 +130,8 @@ static VALUE i_each;
 static VALUE i_close;
 static VALUE i_write;
 static VALUE i_seek;
+static VALUE i_toa;
+static VALUE i_next;
 
 static const char *server_name = "127.0.0.1";
 static short server_port = 8000;
@@ -325,7 +352,6 @@ blocking_write(client_t *client, char *data, size_t len)
     default:
       data += (int)r;
       len -= r;
-      /* client->content_length += r; */
       client->write_bytes += r;
     }
   }
@@ -524,7 +550,6 @@ writev_bucket(write_bucket *data)
       // again later
       return writev_bucket(data);
     }
-    data->sended = 1;
   }
   data->sended = 1;
   return STATUS_OK;
@@ -712,7 +737,7 @@ close_response(client_t *client)
 static VALUE
 rb_body_iterator(VALUE iterator)
 {
-  return rb_funcall(iterator, rb_intern("next"), 0);
+  return rb_funcall(iterator, i_next, 0);
 }
 
 
@@ -738,7 +763,6 @@ processs_write(client_t *client)
   iterator = client->response_iter;
 
   if(iterator != Qnil) {
-    /* while ( item = rb_funcall(iterator, rb_intern("next"), 0) ) { */
     for(;;) {
       item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL);
       if (item == Qnil) break;
@@ -848,10 +872,10 @@ start_response_write(client_t *client)
     return STATUS_ERROR;
   }
 
-  iterator = rb_funcall(client->response, rb_intern("each"), 0);
+  iterator = rb_funcall(client->response, i_each, 0);
   client->response_iter = iterator;
 
-  item = rb_funcall(iterator, rb_intern("next"), 0);
+  item = rb_funcall(iterator, i_next, 0);
   Check_Type(item, T_STRING);
   DEBUG("client %p :fd %d", client, client->fd);
   if(item != Qnil) {
@@ -1375,9 +1399,9 @@ headers_complete_cb(http_parser *p)
   }
 
   if (p->http_minor == 1) {
-    obj = rb_str_new2("HTTP/1.1");
+    obj = http_11;
   } else {
-    obj = rb_str_new2("HTTP/1.0");
+    obj = http_10;
   }
   RDEBUG("%p", (VALUE)rb_hash_aref(env, server_protocol));
   rb_hash_aset(env, server_protocol, obj);  // segv
@@ -1416,64 +1440,64 @@ headers_complete_cb(http_parser *p)
      
   switch(p->method){
   case HTTP_DELETE:
-    obj = rb_str_new("DELETE", 6);
+    obj = http_delete;
     break;
   case HTTP_GET:
-    obj = rb_str_new("GET", 3);
+    obj = http_get;
     break;
   case HTTP_HEAD:
-    obj = rb_str_new("HEAD", 4);
+    obj = http_head;
     break;
   case HTTP_POST:
-    obj = rb_str_new("POST", 4);
+    obj = http_post;
     break;
   case HTTP_PUT:
-    obj = rb_str_new("PUT", 3);
+    obj = http_put;
     break;
   case HTTP_CONNECT:
-    obj = rb_str_new("CONNECT", 7);
+    obj = http_connect;
     break;
   case HTTP_OPTIONS:
-    obj = rb_str_new("OPTIONS", 7);
+    obj = http_options;
     break;
   case  HTTP_TRACE:
-    obj = rb_str_new("TRACE", 5);
+    obj = http_trace;
     break;
   case HTTP_COPY:
-    obj = rb_str_new("COPY", 4);
+    obj = http_copy;
     break;
   case HTTP_LOCK:
-    obj = rb_str_new("LOCK", 4);
+    obj = http_lock;
     break;
   case HTTP_MKCOL:
-    obj = rb_str_new("MKCOL", 5);
+    obj = http_mkcol;
     break;
   case HTTP_MOVE:
-    obj = rb_str_new("MOVE", 4);
+    obj = http_move;
     break;
   case HTTP_PROPFIND:
-    obj = rb_str_new("PROPFIND", 8);
+    obj = http_propfind;
     break;
   case HTTP_PROPPATCH:
-    obj = rb_str_new("PROPPATCH", 9);
+    obj = http_proppatch;
     break;
   case HTTP_UNLOCK:
-    obj = rb_str_new("UNLOCK", 6);
+    obj = http_unlock;
     break;
   case HTTP_REPORT:
-    obj = rb_str_new("REPORT", 6);
+    obj = http_report;
     break;
   case HTTP_MKACTIVITY:
-    obj = rb_str_new("MKACTIVITY", 10);
+    obj = http_mkactivity;
     break;
   case HTTP_CHECKOUT:
-    obj = rb_str_new("CHECKOUT", 8);
+    obj = http_checkout;
     break;
   case HTTP_MERGE:
-    obj = rb_str_new("MERGE", 5);
+    obj = http_merge;
     break;
   default:
-    obj = rb_str_new("GET", 3);
+    obj = http_get;
     break;
   }
     
@@ -1587,8 +1611,33 @@ setup_static_env(char *name, int port)
   h_content_type = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_TYPE"));
   h_content_length = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_LENGTH"));
 
+  http_10 = rb_obj_freeze(rb_str_new2("HTTP/1.0"));
+  http_11 = rb_obj_freeze(rb_str_new2("HTTP/1.1"));
+
+  http_delete = rb_obj_freeze(rb_str_new2("DELETE"));
+  http_get = rb_obj_freeze(rb_str_new2("GET"));
+  http_head = rb_obj_freeze(rb_str_new2("HEAD"));
+  http_post = rb_obj_freeze(rb_str_new2("POST"));
+  http_put = rb_obj_freeze(rb_str_new2("PUT"));
+  http_connect = rb_obj_freeze(rb_str_new2("CONNECT"));
+  http_options = rb_obj_freeze(rb_str_new2("OPTIONS"));
+  http_trace = rb_obj_freeze(rb_str_new2("TRACE"));
+  http_copy = rb_obj_freeze(rb_str_new2("COPY"));
+  http_lock = rb_obj_freeze(rb_str_new2("LOCK"));
+  http_mkcol = rb_obj_freeze(rb_str_new2("MKCOL"));
+  http_move = rb_obj_freeze(rb_str_new2("MOVE"));
+  http_propfind= rb_obj_freeze(rb_str_new2("PROPFIND"));
+  http_proppatch = rb_obj_freeze(rb_str_new2("PROPPATCH"));
+  http_unlock = rb_obj_freeze(rb_str_new2("UNLOCK"));
+  http_report = rb_obj_freeze(rb_str_new2("REPORT"));
+  http_mkactivity = rb_obj_freeze(rb_str_new2("MKACTIVITY"));
+  http_checkout = rb_obj_freeze(rb_str_new2("CHECKOUT"));
+  http_merge = rb_obj_freeze(rb_str_new2("MERGE"));
+
   http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
   http_referer = rb_obj_freeze(rb_str_new2("HTTP_REFERER"));
+
+  http_expect = rb_obj_freeze(rb_str_new2("HTTP_EXPECT"));
 }
 
 
@@ -1871,7 +1920,7 @@ process_rack_app(client_t *cli)
 
   // to_arr
   if (TYPE(response_arr) != T_ARRAY) {
-    response_arr = rb_funcall(response_arr, rb_intern("to_a"), 0);
+    response_arr = rb_funcall(response_arr, i_toa, 0);
   }
 
   if(RARRAY_LEN(response_arr) < 3) {
@@ -1950,7 +1999,7 @@ check_http_expect(client_t *client)
 
   if (client->http_parser->http_minor == 1) {
     ///TODO CHECK
-    c = rb_hash_aref(req->environ, rb_str_new2("HTTP_EXPECT"));
+    c = rb_hash_aref(req->environ, http_expect); 
     if (c != Qnil) {
       val = StringValuePtr(c);
       if (!strncasecmp(val, "100-continue", 12)) {
@@ -2314,7 +2363,6 @@ inet_listen(void)
   for(p = servinfo; p != NULL; p = p->ai_next) {
     if ((listen_sock = socket(p->ai_family, p->ai_socktype,
 			      p->ai_protocol)) == -1) {
-      //perror("server: socket");
       continue;
     }
     
@@ -2501,8 +2549,6 @@ bossan_run_loop(VALUE self, VALUE args)
   rack_app = args;
     
   /* init picoev */
-  /* picoev_init(max_fd); */
-  /* create loop */
   init_main_loop();
   loop_done = 1;
   
@@ -2650,8 +2696,33 @@ Init_bossan_ext(void)
   rb_gc_register_address(&content_type);
   rb_gc_register_address(&content_length);
 
+  rb_gc_register_address(&http_10);
+  rb_gc_register_address(&http_11);
+
+  rb_gc_register_address(&http_delete);
+  rb_gc_register_address(&http_get);
+  rb_gc_register_address(&http_head);
+  rb_gc_register_address(&http_post);
+  rb_gc_register_address(&http_put);
+  rb_gc_register_address(&http_connect);
+  rb_gc_register_address(&http_options);
+  rb_gc_register_address(&http_trace);
+  rb_gc_register_address(&http_copy);
+  rb_gc_register_address(&http_lock);
+  rb_gc_register_address(&http_mkcol);
+  rb_gc_register_address(&http_move);
+  rb_gc_register_address(&http_propfind);
+  rb_gc_register_address(&http_proppatch);
+  rb_gc_register_address(&http_unlock);
+  rb_gc_register_address(&http_report);
+  rb_gc_register_address(&http_mkactivity);
+  rb_gc_register_address(&http_checkout);
+  rb_gc_register_address(&http_merge);
+
   rb_gc_register_address(&http_user_agent);
   rb_gc_register_address(&http_referer);
+
+  rb_gc_register_address(&http_expect);
 
   empty_string = rb_obj_freeze(rb_str_new2(""));
   rb_gc_register_address(&empty_string);
@@ -2675,6 +2746,8 @@ Init_bossan_ext(void)
   i_close = rb_intern("close");
   i_write = rb_intern("write");
   i_seek = rb_intern("seek");
+  i_toa = rb_intern("to_a");
+  i_next = rb_intern("next");
 
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);

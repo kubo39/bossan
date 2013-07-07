@@ -23,39 +23,39 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
-#define DEVELOP
+/* #define DEVELOP */
 
 #ifdef DEVELOP
-#define DEBUG(...) \
-    do { \
-        printf("%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
-        printf(__VA_ARGS__); \
-        printf("\n"); \
-    } while(0)
-#define RDEBUG(...) \
-    do { \
-        printf("\x1B[31m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
-        printf(__VA_ARGS__); \
-        printf("\x1B[0m\n"); \
-    } while(0)
-#define GDEBUG(...) \
-    do { \
-        printf("\x1B[32m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
-        printf(__VA_ARGS__); \
-        printf("\x1B[0m\n"); \
-    } while(0)
-#define BDEBUG(...) \
-    do { \
-        printf("\x1B[1;34m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
-        printf(__VA_ARGS__); \
-        printf("\x1B[0m\n"); \
-    } while(0)
-#define YDEBUG(...) \
-    do { \
-        printf("\x1B[1;33m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
-        printf(__VA_ARGS__); \
-        printf("\x1B[0m\n"); \
-    } while(0)
+#define DEBUG(...)						\
+  do {								\
+    printf("%-40s %-26s%4u: ", __FILE__, __func__, __LINE__);	\
+    printf(__VA_ARGS__);					\
+    printf("\n");						\
+  } while(0)
+#define RDEBUG(...)							\
+  do {									\
+    printf("\x1B[31m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__);	\
+    printf(__VA_ARGS__);						\
+    printf("\x1B[0m\n");						\
+  } while(0)
+#define GDEBUG(...)							\
+  do {									\
+    printf("\x1B[32m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__);	\
+    printf(__VA_ARGS__);						\
+    printf("\x1B[0m\n");						\
+  } while(0)
+#define BDEBUG(...)							\
+  do {									\
+    printf("\x1B[1;34m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
+    printf(__VA_ARGS__);						\
+    printf("\x1B[0m\n");						\
+  } while(0)
+#define YDEBUG(...)							\
+  do {									\
+    printf("\x1B[1;33m%-40s %-26s%4u: ", __FILE__, __func__, __LINE__); \
+    printf(__VA_ARGS__);						\
+    printf("\x1B[0m\n");						\
+  } while(0)
 #else
 #define DEBUG(...) do{}while(0)
 #define RDEBUG(...) do{}while(0)
