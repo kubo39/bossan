@@ -22,6 +22,8 @@
 #define CRLF "\r\n"
 #define DELIM ": "
 
+#define SERVER "bossan/0.3.0"
+
 #define H_MSG_500 "HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/html\r\nServer:  " SERVER "\r\n\r\n"
 
 #define H_MSG_503 "HTTP/1.0 503 Service Unavailable\r\nContent-Type: text/html\r\nServer: " SERVER "\r\n\r\n"
@@ -50,8 +52,6 @@
 #define MSG_413 H_MSG_413 "<html><head><title>Request Entity Too Large</title></head><body><p>Request Entity Too Large.</p></body></html>"
 
 #define MSG_417 H_MSG_417 "<html><head><title>Expectation Failed</title></head><body><p>Expectation Failed.</p></body></html>"
-
-#define SERVER "bossan/0.3.0"
 
 VALUE server; // Bossan
 
@@ -643,10 +643,10 @@ write_headers(client_t *client, char *data, size_t datalen)
       object1 = rb_ary_entry(arr, i);
       Check_Type(object1, T_STRING);
 
-      VALUE tmp = rb_funcall(client->headers, i_key, 1, object1);
-      if (tmp == Qfalse){
-	goto error;
-      }
+      /* VALUE tmp = rb_funcall(client->headers, i_key, 1, object1); */
+      /* if (tmp == Qfalse){ */
+      /* 	goto error; */
+      /* } */
       object2 = rb_hash_aref(client->headers, object1);
 
       Check_Type(object2, T_STRING);
@@ -866,7 +866,6 @@ start_response_write(client_t *client)
   VALUE item;
   char *buf;
   ssize_t buflen;
-  response_status ret;
     
   if (TYPE(client->response) != T_ARRAY){
     return STATUS_ERROR;
@@ -884,9 +883,7 @@ start_response_write(client_t *client)
     buflen = RSTRING_LEN(item);
 
     /* DEBUG("status_code %d body:%.*s", client->status_code, (int)buflen, buf); */
-    ret = write_headers(client, buf, buflen);
-    //TODO when ret == STATUS_SUSPEND keep item
-    return ret;
+    return write_headers(client, buf, buflen);
   }else{
     if (item == NULL) {
       //Stop Iteration
@@ -902,12 +899,13 @@ response_status
 response_start(client_t *client)
 {
   response_status ret;
-  /* enable_cork(client); */
+
   if(client->status_code == 304){
     return write_headers(client, NULL, 0);
   }
   ret = start_response_write(client);
   DEBUG("start_response_write ret = %d :fd = %d\n", ret, client->fd);
+
   if(ret == STATUS_OK){
     // sended header
     ret = processs_write(client);
@@ -952,50 +950,6 @@ static int
 write_body(request *req, const char *buffer, size_t buffer_len)
 {
   return write_body2mem(req, buffer, buffer_len);
-}
-
-
-typedef enum{
-  CONTENT_TYPE,
-  CONTENT_LENGTH,
-  OTHER
-} rack_header_type;
-
-
-static  rack_header_type
-check_header_type(const char *buf)
-{
-  if(*buf++ != 'C'){
-    return OTHER;
-  }
-  if(*buf++ != 'O'){
-    return OTHER;
-  }
-  if(*buf++ != 'N'){
-    return OTHER;
-  }
-  if(*buf++ != 'T'){
-    return OTHER;
-  }
-  if(*buf++ != 'E'){
-    return OTHER;
-  }
-  if(*buf++ != 'N'){
-    return OTHER;
-  }
-  if(*buf++ != 'T'){
-    return OTHER;
-  }
-  if(*buf++ != '_'){
-    return OTHER;
-  }
-  char c = *buf++;
-  if(c == 'L'){
-    return CONTENT_LENGTH;
-  }else if(c == 'T'){
-    return CONTENT_TYPE;
-  }
-  return OTHER;
 }
 
 
@@ -1403,7 +1357,7 @@ headers_complete_cb(http_parser *p)
   } else {
     obj = http_10;
   }
-  RDEBUG("%p", (VALUE)rb_hash_aref(env, server_protocol));
+  /* RDEBUG("%p", (VALUE)rb_hash_aref(env, server_protocol)); */
   rb_hash_aset(env, server_protocol, obj);  // segv
 
   if(likely(req->path)){
@@ -1424,9 +1378,6 @@ headers_complete_cb(http_parser *p)
 
     req->field = NULL;
     req->value = NULL;
-    if(unlikely(ret == -1)){
-      return -1;
-    }
   }
 
   ret = replace_env_key(env, h_content_type, content_type);
@@ -1749,7 +1700,6 @@ clean_client(client_t *client)
 
   DEBUG("status_code:%d env:%p", client->status_code, req->environ);
   if (req->body) {
-    /* free_buffer(req->body); */
     req->body = NULL;
   }
   free_request(req);
@@ -1937,7 +1887,7 @@ process_rack_app(client_t *cli)
   cli->status_code = NUM2INT(response_as_arr[0]);
   cli->headers = response_as_arr[1];
   cli->response = response_as_arr[2];
-  rb_gc_register_address(cli->response);
+  /* rb_gc_register_address(cli->response); */
 
   if (cli->response_closed) {
     //closed
@@ -1954,7 +1904,7 @@ process_rack_app(client_t *cli)
   char buff[256];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
   cli->http_status = rb_str_new(buff, strlen(buff));
-  rb_gc_register_address(&cli->http_status);
+  /* rb_gc_register_address(&cli->http_status); */
 
   //check response
   if(cli->response && cli->response == Qnil){
@@ -2323,7 +2273,7 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 	  // die
 	  loop_done = 0;
 	}
-	break;
+      	break;
       }
     }
   }
@@ -2334,7 +2284,7 @@ static void
 setup_server_env(void)
 {
   setup_listen_sock(listen_sock);
-  setup_sock(listen_sock);
+  /* setup_sock(listen_sock); */
   cache_time_init();
   setup_static_env(server_name, server_port);
 }
@@ -2379,7 +2329,7 @@ inet_listen(void)
     break;
   }
 
-  if (p == NULL)  {
+  if (p == NULL) {
     close(listen_sock);
     rb_raise(rb_eIOError, "server: failed to bind\n");
   }
@@ -2595,7 +2545,7 @@ bossan_set_keepalive(VALUE self, VALUE args)
 
   on = NUM2INT(args);
   if(on < 0){
-    rb_p("keep alive value out of range.\n");
+    printf("keep alive value out of range.\n");
     return Qfalse;
   }
 
