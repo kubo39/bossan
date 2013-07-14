@@ -6,6 +6,7 @@
 #include "buffer.h"
 #include "client.h"
 
+
 #define ACCEPT_TIMEOUT_SECS 1
 #define SHORT_TIMEOUT_SECS 2
 #define WRITE_TIMEOUT_SECS 5
@@ -122,16 +123,18 @@ static VALUE http_referer;
 
 static VALUE http_expect;
 
-static VALUE i_keys;
-static VALUE i_call;
-static VALUE i_new;
-static VALUE i_key;
-static VALUE i_each;
-static VALUE i_close;
-static VALUE i_write;
-static VALUE i_seek;
-static VALUE i_toa;
-static VALUE i_next;
+static ID i_keys;
+static ID i_call;
+static ID i_new;
+static ID i_key;
+static ID i_each;
+static ID i_close;
+static ID i_write;
+static ID i_seek;
+static ID i_toa;
+static ID i_next;
+
+static VALUE default_path_string;
 
 static const char *server_name = "127.0.0.1";
 static short server_port = 8000;
@@ -248,7 +251,7 @@ write_log(const char *new_path, int fd, const char *data, size_t len)
 }
 
 
-int 
+static int
 write_access_log(client_t *cli, int log_fd, const char *log_path)
 {
   request *req = (cli);
@@ -359,7 +362,7 @@ blocking_write(client_t *client, char *data, size_t len)
 }
 
 
-void
+static void
 send_error_page(client_t *client)
 {
   shutdown(client->fd, SHUT_RD);
@@ -403,19 +406,6 @@ send_error_page(client_t *client)
   client->keep_alive = 0;
   client->header_done = 1;
   client->response_closed = 1;
-}
-
-
-static void
-enable_cork(client_t *client)
-{
-  int on = 1, r;
-#ifdef linux
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_CORK, &on, sizeof(on));
-#elif defined(__APPLE__) || defined(__FreeBSD__)
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_NOPUSH, &on, sizeof(on));
-#endif
-  assert(r == 0);
 }
 
 
@@ -563,7 +553,7 @@ get_chunk_data(size_t datalen)
   int i = 0;
   i = snprintf(lendata, 32, "%zx", datalen);
   DEBUG("Transfer-Encoding chunk_size %s", lendata);
-  return rb_str_new(lendata, (ssize_t)i);
+  return rb_str_new(lendata, i);
 }
 
 
@@ -626,7 +616,6 @@ write_headers(client_t *client, char *data, size_t datalen)
     set2bucket(bucket, value, valuelen);
 
     add_header(bucket, "Server", 6,  SERVER, sizeof(SERVER) -1);
-    //cache_time_update();
     add_header(bucket, "Date", 4, (char *)http_time, 29);
   }
 
@@ -643,12 +632,7 @@ write_headers(client_t *client, char *data, size_t datalen)
       object1 = rb_ary_entry(arr, i);
       Check_Type(object1, T_STRING);
 
-      /* VALUE tmp = rb_funcall(client->headers, i_key, 1, object1); */
-      /* if (tmp == Qfalse){ */
-      /* 	goto error; */
-      /* } */
       object2 = rb_hash_aref(client->headers, object1);
-
       Check_Type(object2, T_STRING);
       
       name = StringValuePtr(object1);
@@ -762,54 +746,50 @@ processs_write(client_t *client)
   DEBUG("process_write start");
   iterator = client->response_iter;
 
-  if(iterator != Qnil) {
-    for(;;) {
-      item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL);
-      if (item == Qnil) break;
+  while ( (item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL)) != Qnil ) {
 
-      buf = StringValuePtr(item);
-      buflen = RSTRING_LEN(item);
+    buf = StringValuePtr(item);
+    buflen = RSTRING_LEN(item);
 
-      //write
-      if(client->chunked_response){
-	  bucket = new_write_bucket(client->fd, 4);
-	  if(bucket == NULL){
-	    return STATUS_ERROR;
-	  }
-	  char *lendata = NULL;
-	  ssize_t len = 0;
-
-	  VALUE chunk_data = get_chunk_data(buflen);
-	  //TODO CHECK ERROR
-	  lendata = StringValuePtr(chunk_data);
-	  len = RSTRING_LEN(chunk_data);
-
-	  set_chunked_data(bucket, lendata, len, buf, buflen);
-	  bucket->chunk_data = chunk_data;
-      } else {
-	bucket = new_write_bucket(client->fd, 1);
-	if(bucket == NULL){
-	  return STATUS_ERROR;
-	}
-	set2bucket(bucket, buf, buflen);
+    //write
+    if(client->chunked_response){
+      bucket = new_write_bucket(client->fd, 4);
+      if(bucket == NULL){
+	return STATUS_ERROR;
       }
-      bucket->temp1 = item;
+      char *lendata = NULL;
+      ssize_t len = 0;
 
-      ret = writev_bucket(bucket);
-      if(ret != STATUS_OK){
-	client->bucket = bucket;
-	return ret;
+      VALUE chunk_data = get_chunk_data(buflen);
+      //TODO CHECK ERROR
+      lendata = StringValuePtr(chunk_data);
+      len = RSTRING_LEN(chunk_data);
+
+      set_chunked_data(bucket, lendata, len, buf, buflen);
+      bucket->chunk_data = chunk_data;
+    } else {
+      bucket = new_write_bucket(client->fd, 1);
+      if(bucket == NULL){
+	return STATUS_ERROR;
       }
+      set2bucket(bucket, buf, buflen);
+    }
+    bucket->temp1 = item;
 
-      free_write_bucket(bucket);
-      //mark
-      client->write_bytes += buflen;
-      //check write_bytes/content_length
-      if(client->content_length_set){
-	if(client->content_length <= client->write_bytes){
-	  // all done
-	  break;
-	}
+    ret = writev_bucket(bucket);
+    if(ret != STATUS_OK){
+      client->bucket = bucket;
+      return ret;
+    }
+
+    free_write_bucket(bucket);
+    //mark
+    client->write_bytes += buflen;
+    //check write_bytes/content_length
+    if(client->content_length_set){
+      if(client->content_length <= client->write_bytes){
+	// all done
+	break;
       }
     }
 
@@ -824,14 +804,13 @@ processs_write(client_t *client)
       writev_bucket(bucket);
       free_write_bucket(bucket);
     }
-
     close_response(client);
   }
   return STATUS_OK;
 }
 
 
-response_status
+static response_status
 process_body(client_t *client)
 {
   response_status ret;
@@ -854,8 +833,7 @@ process_body(client_t *client)
       return ret;
     }
   }
-  ret = processs_write(client);
-  return ret;
+  return processs_write(client);
 }
 
 
@@ -877,21 +855,13 @@ start_response_write(client_t *client)
   item = rb_funcall(iterator, i_next, 0);
   Check_Type(item, T_STRING);
   DEBUG("client %p :fd %d", client, client->fd);
-  if(item != Qnil) {
-    //write string only
-    buf = StringValuePtr(item);
-    buflen = RSTRING_LEN(item);
 
-    /* DEBUG("status_code %d body:%.*s", client->status_code, (int)buflen, buf); */
-    return write_headers(client, buf, buflen);
-  }else{
-    if (item == NULL) {
-      //Stop Iteration
-      RDEBUG("WARN iter item == NULL");
-      return write_headers(client, NULL, 0);
-    }
-  }
-  return STATUS_ERROR;
+  //write string only
+  buf = StringValuePtr(item);
+  buflen = RSTRING_LEN(item);
+
+  /* DEBUG("status_code %d body:%.*s", client->status_code, (int)buflen, buf); */
+  return write_headers(client, buf, buflen);
 }
 
 
@@ -937,9 +907,7 @@ key_upper(char *s, const char *key, size_t len)
 static int
 write_body2mem(request *req, const char *buffer, size_t buf_len)
 {
-  VALUE obj;
-
-  rb_funcall(req->body, i_write, 1, rb_str_new(buffer, buf_len));
+  rb_funcall((VALUE)req->body, i_write, 1, rb_str_new(buffer, buf_len));
   req->body_readed += buf_len;
   DEBUG("write_body2mem %d bytes \n", buf_len);
   return req->body_readed;
@@ -968,7 +936,7 @@ get_current_request(http_parser *p)
 }
 
 
-VALUE
+static VALUE
 new_environ(client_t *client)
 {
   VALUE object, environ;
@@ -1046,10 +1014,11 @@ concat_string(VALUE o, const char *buf, size_t len)
   }
   dest = StringValuePtr(ret);
   origin = StringValuePtr(o);
-  memcpy(dest, origin , l);
-  memcpy(dest + l, buf , len);
+  memcpy(dest, origin, l);
+  memcpy(dest + l, buf, len);
   return ret;
 }
+
 
 static int
 replace_env_key(VALUE dict, VALUE old_key, VALUE new_key)
@@ -1068,7 +1037,7 @@ replace_env_key(VALUE dict, VALUE old_key, VALUE new_key)
 static int
 set_query(VALUE env, char *buf, int len)
 {
-  int c, ret, slen = 0;
+  int c, slen = 0;
   char *s0;
   VALUE obj;
 
@@ -1085,14 +1054,7 @@ set_query(VALUE env, char *buf, int len)
 
   if(slen > 1){
     obj = rb_str_new(s0, slen-1);
-    if(unlikely(obj == NULL)){
-      return -1;
-    }
-    ret = rb_hash_aset(env, query_string, obj);
-        
-    if(unlikely(ret == -1)){
-      return -1;
-    }
+    rb_hash_aset(env, query_string, obj);
   }
   return 1; 
 }
@@ -1134,12 +1096,8 @@ set_path(VALUE env, char *buf, int len)
 
   obj = rb_str_new(s0, slen);
 
-  if(likely(obj != NULL)){
-    rb_hash_aset(env, path_info, obj);
-    return slen;
-  }else{
-    return -1;
-  }
+  rb_hash_aset(env, path_info, obj);
+  return slen;
 }
 
 
@@ -1173,23 +1131,7 @@ get_http_header_key(const char *s, int len)
 }
 
 
-uintptr_t
-get_current_msec(void)
-{
-  time_t sec = 0;
-  uintptr_t msec = 0;
-  struct timeval tv;
-
-  gettimeofday(&tv, NULL);
-
-  sec = tv.tv_sec;
-  msec = tv.tv_usec / 1000;
-
-  return (uintptr_t) sec * 1000 + msec;
-}
-
-
-int
+static int
 message_begin_cb(http_parser *p)
 {
   request *req;
@@ -1209,8 +1151,8 @@ message_begin_cb(http_parser *p)
 }
 
 
-int
-header_field_cb (http_parser *p, const char *buf, size_t len)
+static int
+header_field_cb(http_parser *p, const char *buf, size_t len)
 {
   VALUE env, obj;
   request *req = get_current_request(p);
@@ -1251,8 +1193,8 @@ header_field_cb (http_parser *p, const char *buf, size_t len)
 }
 
 
-int
-header_value_cb (http_parser *p, const char *buf, size_t len)
+static int
+header_value_cb(http_parser *p, const char *buf, size_t len)
 {
   request *req = get_current_request(p);
   VALUE obj;
@@ -1277,8 +1219,8 @@ header_value_cb (http_parser *p, const char *buf, size_t len)
 }
 
 
-int
-request_uri_cb (http_parser *p, const char *buf, size_t len)
+static int
+request_uri_cb(http_parser *p, const char *buf, size_t len)
 {
   request *req = get_current_request(p);
   buffer_result ret = MEMORY_ERROR;
@@ -1303,8 +1245,8 @@ request_uri_cb (http_parser *p, const char *buf, size_t len)
 }
 
 
-int
-body_cb (http_parser *p, const char *buf, size_t len)
+static int
+body_cb(http_parser *p, const char *buf, size_t len)
 {
   request *req = get_current_request(p);
 
@@ -1368,7 +1310,7 @@ headers_complete_cb(http_parser *p)
       return -1;
     }
   }else{
-    rb_hash_aset(env, path_info, rb_str_new2("/"));
+    rb_hash_aset(env, path_info, default_path_string);
   }
   req->path = NULL;
 
@@ -1460,7 +1402,7 @@ headers_complete_cb(http_parser *p)
 }
 
 
-int
+static int
 message_complete_cb (http_parser *p)
 {
   client_t *client = get_client(p);
@@ -1481,12 +1423,9 @@ static http_parser_settings settings =
   };
 
 
-int
+static int
 init_parser(client_t *cli, const char *name, const short port)
 {
-  VALUE object;
-  char r_port[7];
-
   cli->http_parser = (http_parser*)ruby_xmalloc(sizeof(http_parser));
   memset(cli->http_parser, 0, sizeof(http_parser));
   http_parser_init(cli->http_parser, HTTP_REQUEST);
@@ -1496,21 +1435,21 @@ init_parser(client_t *cli, const char *name, const short port)
 }
 
 
-size_t
+static size_t
 execute_parse(client_t *cli, const char *data, size_t len)
 {
   return http_parser_execute(cli->http_parser, &settings, data, len);
 }
 
 
-int
+static int
 parser_finish(client_t *cli)
 {
   return cli->complete;
 }
 
 
-void
+static void
 setup_static_env(char *name, int port)
 {
   char vport[7];
@@ -1603,7 +1542,7 @@ setsig(int sig, void* handler)
 }
 
 
-void
+static void
 setup_listen_sock(int fd)
 {
   int on = 1, r = -1;
@@ -1619,7 +1558,6 @@ setup_sock(int fd)
 {
   int on = 1, r;
   r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
-  //assert(r == 0);
 
   // 60 + 30 * 4
   /* on = 300; */
@@ -1635,25 +1573,9 @@ setup_sock(int fd)
   r = 0; // Use accept4() on Linux
 #else
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
+  assert(r == 0);
 #endif
   /* assert(r == 0); */
-  return r;
-}
-
-
-static void
-disable_cork(client_t *client)
-{
-  int off = 0;
-  int on = 1, r;
-#ifdef linux
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_CORK, &off, sizeof(off));
-#elif defined(__APPLE__) || defined(__FreeBSD__)
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_NOPUSH, &off, sizeof(off));
-#endif
-  assert(r == 0);
-  r = setsockopt(client->fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
-  assert(r == 0);
 }
 
 
@@ -1760,7 +1682,8 @@ close_client(client_t *client)
 }
 
 
-static void init_main_loop(void)
+static void
+init_main_loop(void)
 {
   if (main_loop == NULL) {
     /* init picoev */
@@ -1887,7 +1810,6 @@ process_rack_app(client_t *cli)
   cli->status_code = NUM2INT(response_as_arr[0]);
   cli->headers = response_as_arr[1];
   cli->response = response_as_arr[2];
-  /* rb_gc_register_address(cli->response); */
 
   if (cli->response_closed) {
     //closed
@@ -1904,7 +1826,6 @@ process_rack_app(client_t *cli)
   char buff[256];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
   cli->http_status = rb_str_new(buff, strlen(buff));
-  /* rb_gc_register_address(&cli->http_status); */
 
   //check response
   if(cli->response && cli->response == Qnil){
@@ -2115,48 +2036,27 @@ read_timeout(int fd, client_t *client)
 
 
 static int
-compare_key(VALUE env, char *key, char *compare)
-{
-  int ret = -1;
-  char *val = NULL;
-
-  VALUE c = rb_hash_aref(env, key);
-  if (c) {
-    val = StringValuePtr(c);
-    ret = strcasecmp(val, compare);
-  }
-  return ret;
-}
-
-
-static int
 parse_http_request(int fd, client_t *client, char *buf, ssize_t r)
 {
   int nread = 0;
   request *req = NULL;
 
-  BDEBUG("fd:%d \n%.*s", fd, (int)r, buf);
+  BDEBUG("fd:%d \n%.*s", fd, r, buf);
   nread = execute_parse(client, buf, r);
-  BDEBUG("read request fd %d readed %d nread %d", fd, (int)r, nread);
+  BDEBUG("read request fd %d readed %d nread %d", fd, r, nread);
 
   req = client->current_req;
 
-  if (client->upgrade) {
-    //TODO  New protocol
-    if (parse_new_protocol(req, buf, r, nread) == -1) {
+  if (nread != r || req->bad_request_code > 0) {
+    if (req == NULL) {
+      DEBUG("fd %d bad_request code 400", fd);
+      return set_read_error(client, 400);
+    } else {
+      DEBUG("fd %d bad_request code %d", fd,  req->bad_request_code);
       return set_read_error(client, req->bad_request_code);
     }
-  } else {
-    if (nread != r || req->bad_request_code > 0) {
-      if (req == NULL) {
-	DEBUG("fd %d bad_request code 400", fd);
-	return set_read_error(client, 400);
-      } else {
-	DEBUG("fd %d bad_request code %d", fd,  req->bad_request_code);
-	return set_read_error(client, req->bad_request_code);
-      }
-    }
   }
+
   if (parser_finish(client) > 0) {
     return 1;
   }
@@ -2284,7 +2184,7 @@ static void
 setup_server_env(void)
 {
   setup_listen_sock(listen_sock);
-  /* setup_sock(listen_sock); */
+  setup_sock(listen_sock);
   cache_time_init();
   setup_static_env(server_name, server_port);
 }
@@ -2512,6 +2412,7 @@ bossan_run_loop(VALUE self, VALUE args)
   while (loop_done) {
     picoev_loop_once(main_loop, 10);
   }
+
   picoev_destroy_loop(main_loop);
   picoev_deinit();
 
@@ -2523,7 +2424,7 @@ bossan_run_loop(VALUE self, VALUE args)
 }
 
 
-VALUE 
+static VALUE 
 bossan_set_max_content_length(VALUE self, VALUE args)
 {
   max_content_length = NUM2INT(args);
@@ -2531,14 +2432,14 @@ bossan_set_max_content_length(VALUE self, VALUE args)
 }
 
 
-VALUE 
+static VALUE 
 bossan_get_max_content_length(VALUE self)
 {
   return INT2NUM(max_content_length);
 }
 
 
-VALUE 
+static VALUE 
 bossan_set_keepalive(VALUE self, VALUE args)
 {
   int on;
@@ -2560,14 +2461,14 @@ bossan_set_keepalive(VALUE self, VALUE args)
 }
 
 
-VALUE
+static VALUE
 bossan_get_keepalive(VALUE self)
 {
   return INT2NUM(is_keep_alive);
 }
 
 
-VALUE 
+static VALUE 
 bossan_set_picoev_max_fd(VALUE self, VALUE args)
 {
   int temp;
@@ -2580,14 +2481,14 @@ bossan_set_picoev_max_fd(VALUE self, VALUE args)
 }
 
 
-VALUE 
+static VALUE 
 bossan_get_picoev_max_fd(VALUE self)
 {
   return INT2NUM(max_fd);
 }
 
 
-VALUE
+static VALUE
 bossan_set_backlog(VALUE self, VALUE args)
 {
   int temp;
@@ -2600,7 +2501,7 @@ bossan_set_backlog(VALUE self, VALUE args)
 }
 
 
-VALUE 
+static VALUE 
 bossan_get_backlog(VALUE self)
 {
   return INT2NUM(backlog);
@@ -2700,7 +2601,6 @@ Init_bossan_ext(void)
   i_next = rb_intern("next");
 
   server = rb_define_module("Bossan");
-  rb_gc_register_address(&server);
 
   rb_define_module_function(server, "listen", bossan_listen, -1);
   rb_define_module_function(server, "run", bossan_run_loop, 1);
