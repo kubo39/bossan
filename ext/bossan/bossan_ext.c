@@ -2601,6 +2601,7 @@ Init_bossan_ext(void)
   i_next = rb_intern("next");
 
   server = rb_define_module("Bossan");
+  rb_gc_register_address(&server);
 
   rb_define_module_function(server, "listen", bossan_listen, -1);
   rb_define_module_function(server, "run", bossan_run_loop, 1);
