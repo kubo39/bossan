@@ -1026,7 +1026,7 @@ replace_env_key(VALUE dict, VALUE old_key, VALUE new_key)
   int ret = 1;
 
   VALUE value = rb_hash_aref(dict, old_key);
-  if(value) {
+  if(value != Qnil) {
     rb_hash_aset(dict, old_key, Qnil);
     ret = rb_hash_aset(dict, new_key, value);
   }
@@ -1300,7 +1300,7 @@ headers_complete_cb(http_parser *p)
     obj = http_10;
   }
   /* RDEBUG("%p", (VALUE)rb_hash_aref(env, server_protocol)); */
-  rb_hash_aset(env, server_protocol, obj);  // segv
+  rb_hash_aset(env, server_protocol, obj);
 
   if(likely(req->path)){
     ret = set_path(env, req->path->buf, req->path->len);
@@ -1407,7 +1407,6 @@ message_complete_cb (http_parser *p)
 {
   client_t *client = get_client(p);
   client->complete = 1;
-  client->upgrade = p->upgrade;
   return 0;
 }
 
@@ -1553,10 +1552,11 @@ setup_listen_sock(int fd)
 }
 
 
-static void
+static int
 setup_sock(int fd)
 {
-  int on = 1, r;
+  int r;
+  int on = 1;
   r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
 
   // 60 + 30 * 4
@@ -1575,7 +1575,7 @@ setup_sock(int fd)
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
 #endif
-  /* assert(r == 0); */
+  return r;
 }
 
 
@@ -1603,16 +1603,18 @@ clean_client(client_t *client)
 
   request *req = client->current_req;
 
-  write_access_log(client, log_fd, log_path); 
-  if(req){
-    environ = req->environ;
-    end = current_msec;
-    if (req->start_msec > 0){
-      delta_msec = end - req->start_msec;
+  if(log_fd) {
+    write_access_log(client, log_fd, log_path);
+    if(req){
+      environ = req->environ;
+      end = current_msec;
+      if (req->start_msec > 0){
+	delta_msec = end - req->start_msec;
     }
-  } else {
-    if (client->status_code != 408) {
-      environ = new_environ(client);
+    } else {
+      if (client->status_code != 408) {
+	environ = new_environ(client);
+      }
     }
   }
 
@@ -1647,6 +1649,7 @@ close_client(client_t *client)
   DEBUG("start close client:%p fd:%d status_code %d", client, client->fd, client->status_code);
 
   if (picoev_is_active(main_loop, client->fd)) {
+    picoev_del(main_loop, client->fd);
     DEBUG("picoev_del client:%p fd:%d", client, client->fd);
   }
 
@@ -1782,7 +1785,7 @@ static int
 process_rack_app(client_t *cli)
 {
   VALUE args;
-  char *status;
+  /* char *status; */
   request *req = cli->current_req;
   VALUE* response_arr;
 
@@ -1921,7 +1924,6 @@ call_rack_app(client_t *client)
     close_client(client);
     return;
   case STATUS_SUSPEND:
-  /* case STATUS_OK: */
     // continue
     // set callback
     DEBUG("set write callback %d \n", ret);
@@ -2041,9 +2043,9 @@ parse_http_request(int fd, client_t *client, char *buf, ssize_t r)
   int nread = 0;
   request *req = NULL;
 
-  BDEBUG("fd:%d \n%.*s", fd, r, buf);
+  BDEBUG("fd:%d \n%.*s", fd, (int)r, buf);
   nread = execute_parse(client, buf, r);
-  BDEBUG("read request fd %d readed %d nread %d", fd, r, nread);
+  BDEBUG("read request fd %d readed %d nread %d", fd, (int)r, nread);
 
   req = client->current_req;
 
@@ -2150,7 +2152,12 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
       if (client_fd != -1) {
 	DEBUG("accept fd %d \n", client_fd);
 
-	setup_sock(client_fd);
+	if (setup_sock(client_fd) == -1) {
+	  write_error_log(__FILE__, __LINE__);
+	  // die
+	  loop_done = 0;
+	  return;
+	}
 
 	remote_addr = inet_ntoa(client_addr.sin_addr);
 	remote_port = ntohs(client_addr.sin_port);
