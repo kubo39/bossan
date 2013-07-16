@@ -1097,6 +1097,10 @@ set_path(VALUE env, char *buf, int len)
   obj = rb_str_new(s0, slen);
 
   rb_hash_aset(env, path_info, obj);
+
+  if (rb_hash_aref(env, query_string) == Qnil) {
+    rb_hash_aset(env, query_string, empty_string);
+  }
   return slen;
 }
 
