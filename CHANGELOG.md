@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### v0.4.0
+
+(New Feature release. release 2013-0X-XX)
+
+* Support RFC2616(HTTP/1.1)
+
+* fix reason phrase
+
 ### v0.3.0
 
 (New Feature release. release 2013-06-28)
