@@ -66,6 +66,11 @@ class BadHttpMethodTest < Test::Unit::TestCase
     response = send_data("GET" * 100)
     assert_equal(ERR_400, response.split("\r\n").first)
   end
+
+  def test_bad_path
+    response = send_data("..")
+    assert_equal(ERR_400, response.split("\r\n").first)
+  end
 end
 
 
