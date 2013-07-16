@@ -13,6 +13,6 @@ app = ->(env){
 
 Bossan.set_keepalive(10)
 Bossan.listen('localhost', 8000)
-workers = Parallel.each([0,1,2,3]) {|i|
+Parallel.each([0,1,2,3]) {
   Bossan.run(app)
 }
