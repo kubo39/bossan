@@ -622,51 +622,44 @@ write_headers(client_t *client, char *data, size_t datalen)
   VALUE object1, object2;
   
   //write header
-  if(client->headers){
+  for(i=0; i < hlen; i++){
+    object1 = rb_ary_entry(arr, i);
+    /* Check_Type(object1, T_STRING); */
 
-    if (TYPE(client->headers)!=T_HASH){
+    object2 = rb_hash_aref(client->headers, object1);
+    /* Check_Type(object2, T_STRING); */
+      
+    name = StringValuePtr(object1);
+    namelen = RSTRING_LEN(object1);
+  
+    value = StringValuePtr(object2);
+    valuelen = RSTRING_LEN(object2);
+
+    if (strchr(name, ':') != 0) {
       goto error;
     }
 
-    for(i=0; i < hlen; i++){
-      object1 = rb_ary_entry(arr, i);
-      Check_Type(object1, T_STRING);
-
-      object2 = rb_hash_aref(client->headers, object1);
-      Check_Type(object2, T_STRING);
-      
-      name = StringValuePtr(object1);
-      namelen = RSTRING_LEN(object1);
-  
-      value = StringValuePtr(object2);
-      valuelen = RSTRING_LEN(object2);
-
-      if (strchr(name, ':') != 0) {
-	goto error;
-      }
-
-      if (strchr(name, '\n') != 0 || strchr(value, '\n') != 0) {
-	goto error;
-      }
-      
-      if (!strcasecmp(name, "Server") || !strcasecmp(name, "Date")) {
- 	continue;
-      }
-      
-      if (client->content_length_set != 1 && !strcasecmp(name, "Content-Length")) {
-	char *v = value;
-	long l = 0;
-	
-	errno = 0;
-	l = strtol(v, &v, 10);
-	if (*v || errno == ERANGE || l < 0) {
-	  goto error;
-	}
-	client->content_length_set = 1;
-	client->content_length = l;
-      }
-    add_header(bucket, name, namelen, value, valuelen);
+    if (strchr(name, '\n') != 0 || strchr(value, '\n') != 0) {
+      goto error;
     }
+      
+    if (!strcasecmp(name, "Server") || !strcasecmp(name, "Date")) {
+      continue;
+    }
+      
+    if (client->content_length_set != 1 && !strcasecmp(name, "Content-Length")) {
+      char *v = value;
+      long l = 0;
+	
+      errno = 0;
+      l = strtol(v, &v, 10);
+      if (*v || errno == ERANGE || l < 0) {
+	goto error;
+      }
+      client->content_length_set = 1;
+      client->content_length = l;
+    }
+    add_header(bucket, name, namelen, value, valuelen);
   }
 
   // check content_length_set
@@ -840,20 +833,12 @@ process_body(client_t *client)
 static response_status
 start_response_write(client_t *client)
 {
-  VALUE iterator;
   VALUE item;
   char *buf;
   ssize_t buflen;
     
-  if (TYPE(client->response) != T_ARRAY){
-    return STATUS_ERROR;
-  }
-
-  iterator = rb_funcall(client->response, i_each, 0);
-  client->response_iter = iterator;
-
-  item = rb_funcall(iterator, i_next, 0);
-  Check_Type(item, T_STRING);
+  item = rb_funcall(client->response_iter, i_next, 0);
+  /* Check_Type(item, T_STRING); */
   DEBUG("client %p :fd %d", client, client->fd);
 
   //write string only
@@ -1788,15 +1773,13 @@ get_reason_phrase(int status_code)
 static int
 process_rack_app(client_t *cli)
 {
-  VALUE args;
-  /* char *status; */
+  VALUE env, response_arr, status_code, headers, response_body;
   request *req = cli->current_req;
-  VALUE* response_arr;
 
-  args = req->environ;
+  env = req->environ;
 
   // cli->response = [200, {}, []]
-  response_arr = rb_funcall(rack_app, i_call, 1, args);
+  response_arr = rb_funcall(rack_app, i_call, 1, env);
 
   // to_arr
   if (TYPE(response_arr) != T_ARRAY) {
@@ -1807,18 +1790,21 @@ process_rack_app(client_t *cli)
     return 0;
   }
   
-  VALUE* response_as_arr = RARRAY_PTR(response_arr);
+  status_code = rb_ary_entry(response_arr, 0);
+  headers = rb_ary_entry(response_arr, 1);
+  response_body = rb_ary_entry(response_arr, 2);
 
-  if (TYPE(response_as_arr[0]) != T_FIXNUM ||
-      TYPE(response_as_arr[1]) != T_HASH) {
+  if (TYPE(status_code) != T_FIXNUM ||
+      TYPE(headers) != T_HASH) {
     return 0;
   }
 
-  cli->status_code = NUM2INT(response_as_arr[0]);
-  cli->headers = response_as_arr[1];
-  cli->response = response_as_arr[2];
+  cli->status_code = NUM2INT(status_code);
+  cli->headers = headers;
+  cli->response_iter = rb_funcall(response_body, i_each, 0);
 
   rb_gc_register_address(&cli->headers);
+  rb_gc_register_address(&cli->response_iter);
 
   if (cli->response_closed) {
     //closed
