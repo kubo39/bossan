@@ -1203,7 +1203,7 @@ header_value_cb(http_parser *p, const char *buf, size_t len)
   request *req = get_current_request(p);
   VALUE obj;
     
-  if(likely(req->value== NULL)){
+  if(likely(req->value == NULL)){
     obj = rb_str_new(buf, len);
   }else{
     obj = concat_string(req->value, buf, len);
@@ -1817,6 +1817,8 @@ process_rack_app(client_t *cli)
   cli->status_code = NUM2INT(response_as_arr[0]);
   cli->headers = response_as_arr[1];
   cli->response = response_as_arr[2];
+
+  rb_gc_register_address(&cli->headers);
 
   if (cli->response_closed) {
     //closed
