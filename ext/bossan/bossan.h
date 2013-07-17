@@ -3,8 +3,9 @@
 
 #include "ruby.h"
 #include <assert.h>
-#include <fcntl.h>   
-#include <stddef.h> 
+#include <fcntl.h> 
+#include <stddef.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <arpa/inet.h>
