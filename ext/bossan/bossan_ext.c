@@ -127,6 +127,7 @@ static ID i_keys;
 static ID i_call;
 static ID i_new;
 static ID i_each;
+static ID i_toenum;
 static ID i_close;
 static ID i_write;
 static ID i_seek;
@@ -1793,13 +1794,14 @@ process_rack_app(client_t *cli)
   response_body = rb_ary_entry(response_arr, 2);
 
   if (TYPE(status_code) != T_FIXNUM ||
-      TYPE(headers) != T_HASH) {
+      TYPE(headers) != T_HASH       ||
+      rb_respond_to(response_body, i_each) == 0) {
     return 0;
   }
 
   cli->status_code = NUM2INT(status_code);
   cli->headers = headers;
-  cli->response_iter = rb_funcall(response_body, i_each, 0);
+  cli->response_iter = rb_funcall(response_body, i_toenum, 0);
 
   rb_gc_register_address(&cli->headers);
   rb_gc_register_address(&cli->response_iter);
@@ -2579,6 +2581,7 @@ Init_bossan_ext(void)
   rb_gc_register_address(&i_call);
   rb_gc_register_address(&i_new);
   rb_gc_register_address(&i_each);
+  rb_gc_register_address(&i_toenum);
   rb_gc_register_address(&i_close);
   rb_gc_register_address(&i_write);
   rb_gc_register_address(&i_seek);
@@ -2589,6 +2592,7 @@ Init_bossan_ext(void)
   i_call = rb_intern("call");
   i_keys = rb_intern("keys");
   i_each = rb_intern("each");
+  i_toenum = rb_intern("to_enum");
   i_close = rb_intern("close");
   i_write = rb_intern("write");
   i_seek = rb_intern("seek");
