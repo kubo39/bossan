@@ -126,7 +126,6 @@ static VALUE http_expect;
 static ID i_keys;
 static ID i_call;
 static ID i_new;
-static ID i_key;
 static ID i_each;
 static ID i_close;
 static ID i_write;
@@ -1288,7 +1287,6 @@ headers_complete_cb(http_parser *p)
   } else {
     obj = http_10;
   }
-  /* RDEBUG("%p", (VALUE)rb_hash_aref(env, server_protocol)); */
   rb_hash_aset(env, server_protocol, obj);
 
   if(likely(req->path)){
@@ -2580,7 +2578,6 @@ Init_bossan_ext(void)
   rb_gc_register_address(&i_keys);
   rb_gc_register_address(&i_call);
   rb_gc_register_address(&i_new);
-  rb_gc_register_address(&i_key);
   rb_gc_register_address(&i_each);
   rb_gc_register_address(&i_close);
   rb_gc_register_address(&i_write);
@@ -2591,7 +2588,6 @@ Init_bossan_ext(void)
   i_new = rb_intern("new");
   i_call = rb_intern("call");
   i_keys = rb_intern("keys");
-  i_key = rb_intern("key?");
   i_each = rb_intern("each");
   i_close = rb_intern("close");
   i_write = rb_intern("write");
