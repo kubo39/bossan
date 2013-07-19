@@ -9,6 +9,8 @@ Gem::Specification.new do |gem|
   gem.description = %q{high performance asynchronous rack web server}
   gem.summary = gem.description
   gem.homepage = "https://github.com/kubo39/bossan"
+
+  gem.license = 'BSD'
  
   gem.files = `git ls-files`.split($/)
   gem.extensions = ["ext/bossan/extconf.rb"]
