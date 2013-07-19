@@ -2,7 +2,7 @@
 
 ### v0.4.0
 
-(New Feature release. release 2013-0X-XX)
+(New Feature release. release 2013-07-19)
 
 * Support RFC2616(HTTP/1.1)
 
