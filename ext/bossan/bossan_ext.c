@@ -23,7 +23,7 @@
 #define CRLF "\r\n"
 #define DELIM ": "
 
-#define SERVER "bossan/0.4.0"
+#define SERVER "bossan/0.4.1"
 
 #define H_MSG_500 "HTTP/1.0 500 Internal Server Error\r\nContent-Type: text/html\r\nServer:  " SERVER "\r\n\r\n"
 

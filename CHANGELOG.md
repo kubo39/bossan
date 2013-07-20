@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### v0.4.1
+
+(Bug release. release 2013-07-20)
+
+* fix Build failed in OSX.
+
 ### v0.4.0
 
 (New Feature release. release 2013-07-19)
