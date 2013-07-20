@@ -1533,8 +1533,10 @@ static void
 setup_listen_sock(int fd)
 {
   int on = 1, r = -1;
+#ifdef linux
   r = setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &on, sizeof(on));
   assert(r == 0);
+#endif
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
 }
