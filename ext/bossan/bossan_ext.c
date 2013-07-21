@@ -1535,7 +1535,6 @@ setup_listen_sock(int fd)
   int on = 1, r = -1;
 #ifdef linux
   r = setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &on, sizeof(on));
-  assert(r == 0);
 #endif
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
   assert(r == 0);
@@ -2136,8 +2135,9 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     // next turn or other process
     return;
   }else if ((events & PICOEV_READ) != 0) {
+    int i;
     socklen_t client_len = sizeof(client_addr);
-    for(;;) {
+    for(i=0; i<8; ++i) {
 #ifdef linux
       client_fd = accept4(fd, (struct sockaddr *)&client_addr, &client_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
 #else
