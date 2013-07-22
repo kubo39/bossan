@@ -1,4 +1,0 @@
-* set rack.input File-type object, if over 512K
-  - avoid too much use memory
-
-* or else...
