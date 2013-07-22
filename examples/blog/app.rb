@@ -16,7 +16,7 @@ ActiveRecord::Base.establish_connection(
 )
 
 get '/' do
-  @entries = Entries.find(:all).map do |row|
+  @entries = Entries.all.map do |row|
     {:title => row.title,
       :text => row.text }
   end
