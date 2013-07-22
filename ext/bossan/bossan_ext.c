@@ -1983,11 +1983,17 @@ prepare_call_rack(client_t *client)
   }
 
   if (req->body_type == BODY_TYPE_TMPFILE) {
+    int fd;
+    VALUE io;
     request *req = client->current_req;
     FILE *tmp = (FILE *)req->body;
+
     fflush(tmp);
     rewind(tmp);
-    rb_hash_aset(req->environ, rack_input, (VALUE)req->body);
+
+    fd = fileno(tmp);
+    io = rb_io_fdopen(fd, O_RDONLY, NULL);
+    rb_hash_aset(req->environ, rack_input, io);
   } else if(req->body_type == BODY_TYPE_BUFFER) {
     rb_funcall((VALUE)req->body, i_seek, 1, INT2NUM(0));
     rb_hash_aset(req->environ, rack_input, (VALUE)req->body);
