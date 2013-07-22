@@ -158,6 +158,7 @@ static int keep_alive_timeout = 5;
 static int max_fd = 1024 * 4;  // picoev max_fd size
 static int backlog = 1024;  // backlog size
 int max_content_length = 1024 * 1024 * 16; //max_content_length
+int client_body_buffer_size = 1024 * 500;  //client_body_buffer_size
 
 static VALUE StringIO;
 
@@ -890,6 +891,17 @@ key_upper(char *s, const char *key, size_t len)
 
 
 static int
+write_body2file(request *req, const char *buffer, size_t buf_len)
+{
+  FILE *tmp = (FILE *)req->body;
+  fwrite(buffer, 1, buf_len, tmp);
+  req->body_readed += buf_len;
+  DEBUG("write_body2file %d bytes", (int)buf_len);
+  return req->body_readed;
+}
+
+
+static int
 write_body2mem(request *req, const char *buffer, size_t buf_len)
 {
   rb_funcall((VALUE)req->body, i_write, 1, rb_str_new(buffer, buf_len));
@@ -902,7 +914,11 @@ write_body2mem(request *req, const char *buffer, size_t buf_len)
 static int
 write_body(request *req, const char *buffer, size_t buffer_len)
 {
-  return write_body2mem(req, buffer, buffer_len);
+  if (req->body_type == BODY_TYPE_TMPFILE) {
+    return write_body2file(req, buffer, buffer_len);
+  } else {
+    return write_body2mem(req, buffer, buffer_len);
+  }
 }
 
 
@@ -1249,11 +1265,23 @@ body_cb(http_parser *p, const char *buf, size_t len)
       req->bad_request_code = 411;
       return -1;
     }
-    //default memory stream
-    DEBUG("client->body_length %d \n", req->body_length);
-    req->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
-    req->body_type = BODY_TYPE_BUFFER;
-    DEBUG("BODY_TYPE_BUFFER \n");
+    if(req->body_length > client_body_buffer_size){
+      //large size request
+      FILE *tmp = tmpfile();
+      if(tmp < 0){
+	req->bad_request_code = 500;
+	return -1;
+      }
+      req->body = tmp;
+      req->body_type = BODY_TYPE_TMPFILE;
+      printf("BODY_TYPE_TMPFILE\n");
+    }else{
+      //default memory stream
+      DEBUG("client->body_length %d \n", req->body_length);
+      req->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
+      req->body_type = BODY_TYPE_BUFFER;
+      DEBUG("BODY_TYPE_BUFFER \n");
+    }
   }
   write_body(req, buf, len);
   return 0;
@@ -1954,7 +1982,13 @@ prepare_call_rack(client_t *client)
     return;
   }
 
-  if(req->body_type == BODY_TYPE_BUFFER) {
+  if (req->body_type == BODY_TYPE_TMPFILE) {
+    request *req = client->current_req;
+    FILE *tmp = (FILE *)req->body;
+    fflush(tmp);
+    rewind(tmp);
+    rb_hash_aset(req->environ, rack_input, (VALUE)req->body);
+  } else if(req->body_type == BODY_TYPE_BUFFER) {
     rb_funcall((VALUE)req->body, i_seek, 1, INT2NUM(0));
     rb_hash_aset(req->environ, rack_input, (VALUE)req->body);
   } else {
