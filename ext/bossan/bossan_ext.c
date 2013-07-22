@@ -1274,13 +1274,13 @@ body_cb(http_parser *p, const char *buf, size_t len)
       }
       req->body = tmp;
       req->body_type = BODY_TYPE_TMPFILE;
-      printf("BODY_TYPE_TMPFILE\n");
+      DEBUG("BODY_TYPE_TMPFILE");
     }else{
       //default memory stream
       DEBUG("client->body_length %d \n", req->body_length);
       req->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
       req->body_type = BODY_TYPE_BUFFER;
-      DEBUG("BODY_TYPE_BUFFER \n");
+      DEBUG("BODY_TYPE_BUFFER");
     }
   }
   write_body(req, buf, len);
