@@ -88,7 +88,7 @@ static VALUE rack_input;
 static VALUE http_connection;
 
 static VALUE content_type;
-static VALUE content_length;
+static VALUE content_length_key;
 
 static VALUE h_content_type;
 static VALUE h_content_length;
@@ -1009,11 +1009,11 @@ static int
 replace_env_key(VALUE dict, VALUE old_key, VALUE new_key)
 {
   int ret = 1;
-
   VALUE value = rb_hash_aref(dict, old_key);
-  if(value != Qnil) {
+
+  if (value != Qnil) {
     rb_hash_aset(dict, old_key, Qnil);
-    ret = rb_hash_aset(dict, new_key, value);
+    rb_hash_aset(dict, new_key, value);
   }
   return ret;
 }
@@ -1314,7 +1314,7 @@ headers_complete_cb(http_parser *p)
   if(unlikely(ret == -1)){
     return -1;
   }
-  ret = replace_env_key(env, h_content_length, content_length);
+  ret = replace_env_key(env, h_content_length, content_length_key);
   if(unlikely(ret == -1)){
     return -1;
   }
@@ -1483,7 +1483,7 @@ setup_static_env(char *name, int port)
   http_connection = rb_obj_freeze(rb_str_new2("HTTP_CONNECTION"));
 
   content_type = rb_obj_freeze(rb_str_new2("CONTENT_TYPE"));
-  content_length = rb_obj_freeze(rb_str_new2("CONTENT_LENGTH"));
+  content_length_key = rb_obj_freeze(rb_str_new2("CONTENT_LENGTH"));
 
   h_content_type = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_TYPE"));
   h_content_length = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_LENGTH"));
@@ -2546,7 +2546,7 @@ Init_bossan_ext(void)
   rb_gc_register_address(&h_content_type);
   rb_gc_register_address(&h_content_length);
   rb_gc_register_address(&content_type);
-  rb_gc_register_address(&content_length);
+  rb_gc_register_address(&content_length_key);
 
   rb_gc_register_address(&http_10);
   rb_gc_register_address(&http_11);

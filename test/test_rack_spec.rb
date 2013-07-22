@@ -13,6 +13,7 @@ RESPONSE = ["Hello ", "world!"].freeze
 
 class App
   def call env
+    # p env
     body = RESPONSE
     [200,
      {
