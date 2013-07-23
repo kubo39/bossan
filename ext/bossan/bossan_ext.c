@@ -625,10 +625,8 @@ write_headers(client_t *client, char *data, size_t datalen)
   //write header
   for(i=0; i < hlen; i++){
     object1 = rb_ary_entry(arr, i);
-    /* Check_Type(object1, T_STRING); */
 
     object2 = rb_hash_aref(client->headers, object1);
-    /* Check_Type(object2, T_STRING); */
       
     name = StringValuePtr(object1);
     namelen = RSTRING_LEN(object1);
@@ -2002,7 +2000,6 @@ prepare_call_rack(client_t *client)
   } else {
     object = rb_str_new2("");
     input = rb_funcall(StringIO, i_new, 1, object);
-    rb_gc_register_address(&input);
     rb_hash_aset(req->environ, rack_input, input);
     req->body = input;
   }
