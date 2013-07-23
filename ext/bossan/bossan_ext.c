@@ -835,17 +835,18 @@ static response_status
 start_response_write(client_t *client)
 {
   VALUE item;
-  char *buf;
-  ssize_t buflen;
+  char *buf = NULL;
+  ssize_t buflen = NULL;
     
   /* item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL); */
   item = rb_funcall(client->response_iter, i_next, 0);
-  /* Check_Type(item, T_STRING); */
   DEBUG("client %p :fd %d", client, client->fd);
 
-  //write string only
-  buf = StringValuePtr(item);
-  buflen = RSTRING_LEN(item);
+  if (item != Qnil) {
+    //write string only
+    buf = StringValuePtr(item);
+    buflen = RSTRING_LEN(item);
+  }
 
   /* DEBUG("status_code %d body:%.*s", client->status_code, (int)buflen, buf); */
   return write_headers(client, buf, buflen);
@@ -1851,6 +1852,7 @@ process_rack_app(client_t *cli)
   char buff[256];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
   cli->http_status = rb_str_new(buff, strlen(buff));
+  rb_gc_register_address(&cli->http_status);
 
   //check response
   if(cli->response && cli->response == Qnil){
