@@ -838,8 +838,7 @@ start_response_write(client_t *client)
   char *buf = NULL;
   ssize_t buflen = NULL;
     
-  /* item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL); */
-  item = rb_funcall(client->response_iter, i_next, 0);
+  item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL);
   DEBUG("client %p :fd %d", client, client->fd);
 
   if (item != Qnil) {
