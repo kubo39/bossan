@@ -1027,7 +1027,7 @@ replace_env_key(VALUE dict, VALUE old_key, VALUE new_key)
   VALUE value = rb_hash_aref(dict, old_key);
 
   if (value != Qnil) {
-    rb_hash_aset(dict, old_key, Qnil);
+    rb_hash_delete(dict, old_key);
     rb_hash_aset(dict, new_key, value);
   }
   return ret;
