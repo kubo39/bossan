@@ -838,6 +838,7 @@ start_response_write(client_t *client)
   char *buf;
   ssize_t buflen;
     
+  /* item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL); */
   item = rb_funcall(client->response_iter, i_next, 0);
   /* Check_Type(item, T_STRING); */
   DEBUG("client %p :fd %d", client, client->fd);
