@@ -37,25 +37,27 @@ class App
   end
 end
 
-class BadHttpMethodTest < Test::Unit::TestCase
 
-  def send_data method
-    begin
-      sock = TCPSocket.new DEFAULT_HOST, DEFAULT_PORT
-      sock.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
-      sock.send("#{method} #{DEFAULT_PATH} #{DEFAULT_VERSION}\r\n", 0)
-      sock.send("Host: #{DEFAULT_HOST}\r\n", 0)
-      DEFAULT_HEADER.each_pair {|k, v|
-        sock.send("#{k}: #{v}\r\n", 0)
-      }
-      sock.send("\r\n", 0)
+def send_data method
+  begin
+    sock = TCPSocket.new DEFAULT_HOST, DEFAULT_PORT
+    sock.setsockopt(Socket::SOL_SOCKET,Socket::SO_REUSEADDR, true)
+    sock.send("#{method} #{DEFAULT_PATH} #{DEFAULT_VERSION}\r\n", 0)
+    sock.send("Host: #{DEFAULT_HOST}\r\n", 0)
+    DEFAULT_HEADER.each_pair {|k, v|
+      sock.send("#{k}: #{v}\r\n", 0)
+    }
+    sock.send("\r\n", 0)
 
-      data = sock.recv(1024 * 2)
-      return data
-    rescue
-      raise
-    end
+    data = sock.recv(1024 * 2)
+    return data
+  rescue
+    raise
   end
+end
+
+
+class BadHttpMethodTest < Test::Unit::TestCase
 
   def test_bad_method1
     response = send_data("")
@@ -71,6 +73,23 @@ class BadHttpMethodTest < Test::Unit::TestCase
     response = send_data("..")
     assert_equal(ERR_400, response.split("\r\n").first)
   end
+
+  def test_long_url1
+    response = Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT) {|http|
+      query = "A" * 4095
+      http.get("/#{query}")
+    }
+    assert_equal("200", response.code)
+  end
+
+  def test_long_url2
+    response = Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT) {|http|
+      query = "A" * 4096
+      http.get("/#{query}")
+    }
+    assert_equal("400", response.code)
+  end
+
 end
 
 
