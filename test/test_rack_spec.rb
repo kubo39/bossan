@@ -25,21 +25,20 @@ class App
   end
 end
 
+
 class RackSpecTest < Test::Unit::TestCase
 
-  def test_simple_get
+  def test_get
     response = Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT) {|http|
       http.get("/")
     }
-
     assert_equal("200", response.code)
     assert_equal(ASSERT_RESPONSE, response.body)
   end
 
-  def test_simple_post
+  def test_post
     response = Net::HTTP.post_form(URI.parse("http://#{DEFAULT_HOST}:#{DEFAULT_PORT}/"),
                                    {'key1'=> 'value1', 'key2'=> 'value2'})
-
     assert_equal("200", response.code)
     assert_equal(ASSERT_RESPONSE, response.body)
   end
@@ -62,7 +61,6 @@ end
 
 begin
   $stderr.puts RUBY_DESCRIPTION
-
   pid = fork do
     trap(:INT) { Bossan.stop }
     Bossan.listen(DEFAULT_HOST, DEFAULT_PORT)
