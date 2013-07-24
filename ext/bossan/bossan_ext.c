@@ -255,7 +255,7 @@ write_log(const char *new_path, int fd, const char *data, size_t len)
 static int
 write_access_log(client_t *cli, int log_fd, const char *log_path)
 {
-  request *req = (cli);
+  request *req = cli->current_req;
 
   char buf[1024*4];
   if(log_fd > 0){
