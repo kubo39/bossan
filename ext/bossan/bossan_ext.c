@@ -701,12 +701,15 @@ write_headers(client_t *client, char *data, size_t datalen)
 }
 
 
-static void
+response_status
 close_response(client_t *client)
 {
-  //send all response
-  //closing reponse object
-  client->response_closed = 1;
+  if (!client->response_closed) {
+    //send all response
+    //closing reponse object
+    client->response_closed = 1;
+  }
+  return STATUS_OK;
 }
 
 
@@ -784,21 +787,21 @@ processs_write(client_t *client)
 	break;
       }
     }
-
-    if(client->chunked_response){
-      DEBUG("write last chunk");
-      //last packet
-      bucket = new_write_bucket(client->fd, 3);
-      if(bucket == NULL){
-	return STATUS_ERROR;
-      }
-      set_last_chunked_data(bucket);
-      writev_bucket(bucket);
-      free_write_bucket(bucket);
-    }
-    close_response(client);
   }
-  return STATUS_OK;
+
+  if(client->chunked_response){
+    DEBUG("write last chunk");
+    //last packet
+    bucket = new_write_bucket(client->fd, 3);
+    if(bucket == NULL){
+      return STATUS_ERROR;
+    }
+    set_last_chunked_data(bucket);
+    writev_bucket(bucket);
+    free_write_bucket(bucket);
+    return close_response(client);
+  }
+  return close_response(client);
 }
 
 
