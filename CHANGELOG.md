@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### v0.4.2
+
+(Bug release. release 2013-07-25)
+
+* using tmpfile for very large message body(over 512K)
+
+* fix infinte accept loop while high load
+
 ### v0.4.1
 
 (Bug release. release 2013-07-20)
