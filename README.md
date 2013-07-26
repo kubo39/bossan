@@ -2,7 +2,7 @@
 
 [![Build Status](https://secure.travis-ci.org/kubo39/bossan.png?branch=master)](http://travis-ci.org/kubo39/bossan)
 
-Bossan is a high performance asynchronous ruby's rack-compliant web server.
+Bossan is a high performance asynchronous ruby's rack web server.
 
 ## Requirements
 
@@ -12,16 +12,17 @@ Bossan supports Linux, FreeBSD and MacOSX(need gcc>=4.2).
 
 ## Installation
 
-from rubygems
+Install from rubygems:
 
 `gem install bossan`
 
-from source(github)
+Install from source(github):
 
 ```
 git clone git://github.com/kubo39/bossan.git
 cd bossan
 rake
+rake install
 ```
 
 ## Usage
@@ -44,6 +45,10 @@ Bossan.run(proc {|env|
   ]
 })
 ```
+
+with rackup:
+
+`$ rackup config.ru -s bossan`
 
 ## Contributing
 
