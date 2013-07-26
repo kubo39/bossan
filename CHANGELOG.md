@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### v0.4.3
+
+(Bug release. release 2013-XX-XX)
+
+* fix keepalive
+
 ### v0.4.2
 
 (Bug release. release 2013-07-25)
