@@ -22,7 +22,7 @@ class RackEnvSimpleQueryTest < Test::Unit::TestCase
                    # I have no idea how to check this two values..
                    @env.delete "rack.input"
                    @env.delete "rack.errors"
-                   w.write @env
+                   w.write Marshal.dump(@env)
                    w.close
                    body = RESPONSE
                    [200,
@@ -42,11 +42,8 @@ class RackEnvSimpleQueryTest < Test::Unit::TestCase
     }
 
     w.close
-    env = r.read
+    env = Marshal.load(r.read)
     r.close
-
-    # env = eval "Hash[" + env.gsub("\"", "'") + "]"
-    env = eval "Hash[" + env + "]"
 
     assert_equal(env["PATH_INFO"], "/ABC/DEF")
     assert_equal(env["QUERY_STRING"], "a=1234&bbbb=ccc")

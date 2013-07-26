@@ -1,8 +1,8 @@
 require_relative '../lib/bossan'
+require_relative './util'
 require 'minitest/unit'
 require 'test/unit/testcase'
 require 'socket'
-require 'net/http'
 
 
 ASSERT_RESPONSE = "Hello world!"
@@ -90,20 +90,6 @@ class BadHttpMethodTest < Test::Unit::TestCase
     assert_equal("400", response.code)
   end
 
-end
-
-
-def server_is_wake_up? n=100
-  n.times {
-    begin
-      Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT)
-    rescue
-      next
-    end
-    $stderr.puts "*** running success ***"
-    return true
-  }
-  return false
 end
 
 

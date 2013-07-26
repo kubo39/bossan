@@ -1,8 +1,8 @@
 require_relative '../lib/bossan'
+require_relative './util'
 require 'minitest/unit'
 require 'test/unit/testcase'
 require 'uri'
-require 'net/http'
 
 
 DEFAULT_HOST = "localhost"
@@ -42,20 +42,6 @@ class RackSpecTest < Test::Unit::TestCase
     assert_equal("200", response.code)
     assert_equal(ASSERT_RESPONSE, response.body)
   end
-end
-
-
-def server_is_wake_up? n=100
-  n.times {
-    begin
-      Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT)
-    rescue
-      next
-    end
-    $stderr.puts "*** running success ***"
-    return true
-  }
-  return false
 end
 
 

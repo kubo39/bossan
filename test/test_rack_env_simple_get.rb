@@ -22,8 +22,7 @@ class RackEnvSimpleGetTest < Test::Unit::TestCase
                    # I have no idea how to check this two values..
                    @env.delete "rack.input"
                    @env.delete "rack.errors"
-                   # pp @env
-                   w.write @env
+                   w.write Marshal.dump(@env)
                    w.close
                    body = RESPONSE
                    [200,
@@ -43,11 +42,8 @@ class RackEnvSimpleGetTest < Test::Unit::TestCase
     }
 
     w.close
-    env = r.read
+    env = Marshal.load(r.read)
     r.close
-
-    env = eval "Hash[" + env + "]"
-    # pp env
 
     assert_equal(env["PATH_INFO"], "/")
     assert_equal(env["SCRIPT_NAME"], "")
