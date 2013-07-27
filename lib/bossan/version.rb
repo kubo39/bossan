@@ -1,3 +1,3 @@
 module Bossan
-  VERSION = "0.4.3dev"
+  VERSION = "0.4.3"
 end

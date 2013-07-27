@@ -2,7 +2,7 @@
 
 ### v0.4.3
 
-(Bug release. release 2013-XX-XX)
+(Bug release. release 2013-07-27)
 
 * fix keepalive
 
