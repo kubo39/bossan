@@ -74,6 +74,14 @@ class BadHttpMethodTest < Test::Unit::TestCase
     assert_equal(ERR_400, response.split("\r\n").first)
   end
 
+  def test_invalid_encoded_url
+    response = Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT) {|http|
+      query = "?q=%XY"
+      http.get("/#{query}")
+    }
+    assert_equal("400", response.code)
+  end
+
   def test_long_url1
     response = Net::HTTP.start(DEFAULT_HOST, DEFAULT_PORT) {|http|
       query = "A" * 4095
