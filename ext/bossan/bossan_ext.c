@@ -980,17 +980,25 @@ hex2int(int i)
 
 
 static int
-urldecode(char *buf, int len)
+urldecode(char *buf)
 {
-  int c, c1;
-  char *s0, *t;
+  int len;
+  char c, c1, *s0, *t;
+
   t = s0 = buf;
-  while(len >0){
+  len = strlen(buf);
+  while(len > 0){
     c = *buf++;
     if(c == '%' && len > 2){
       c = *buf++;
+      if (!isxdigit(c)) {
+	return -1;
+      }
       c1 = c;
       c = *buf++;
+      if (!isxdigit(c)) {
+	return -1;
+      }
       c = hex2int(c1) * 16 + hex2int(c);
       len -= 2;
     }
@@ -1094,8 +1102,10 @@ set_path(VALUE env, char *buf, int len)
     *t++ = c;
     len--;
   }
-  slen = t - s0;
-  slen = urldecode(s0, slen);
+  slen = urldecode(s0);
+  if (slen == -1) {
+    return -1;
+  }
 
   obj = rb_str_new(s0, slen);
 
