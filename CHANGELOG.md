@@ -1,5 +1,13 @@
 # CHANGELOG
 
+### v0.4.4
+
+(Bug release. release 2013-XX-XX)
+
+* return BadRequest when invalid encoded url
+
+* fix rack::handler
+
 ### v0.4.3
 
 (Bug release. release 2013-07-27)
