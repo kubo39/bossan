@@ -45,8 +45,8 @@ class RackEnvSimpleQueryTest < Test::Unit::TestCase
     env = Marshal.load(r.read)
     r.close
 
-    assert_equal(env["PATH_INFO"], "/ABC/DEF")
-    assert_equal(env["QUERY_STRING"], "a=1234&bbbb=ccc")
+    assert_equal("/ABC/DEF", env["PATH_INFO"])
+    assert_equal("a=1234&bbbb=ccc", env["QUERY_STRING"])
   ensure
     Process.kill(:INT, pid)
   end
