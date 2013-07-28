@@ -1102,8 +1102,8 @@ set_path(VALUE env, char *buf, int len)
     *t++ = c;
     len--;
   }
-  slen = urldecode(s0);
-  if (slen == -1) {
+  slen = t - s0;
+  if (urldecode(s0) == -1) {
     return -1;
   }
 
