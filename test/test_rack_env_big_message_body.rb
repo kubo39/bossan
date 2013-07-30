@@ -1,45 +1,31 @@
-require 'test/unit'
+require_relative './bossan_test'
 require "uri"
-require 'net/http'
-require_relative '../lib/bossan'
+require 'minitest/autorun'
 
-
-class RackEnvBigMessageBodyTest < Test::Unit::TestCase
-
-  RESPONSE = ["Hello ", "world!"].freeze
-  DEFAULT_HOST = "localhost"
-  DEFAULT_PORT = 8000
+class RackEnvBigMessageBodyTest < Bossan::Test::TestCase
+  def app
+    proc {|env|
+      @env = env.dup
+      body = @env["rack.input"].class.to_s
+      [200,
+       {
+         'Content-type'=> 'text/plain',
+         'Content-length'=> body.size.to_s
+       },
+       [ body ]
+      ]
+    }
+  end
 
   def test_query_app
-    pid = fork do
-      trap(:INT) { Bossan.stop }
-      Bossan.listen(DEFAULT_HOST, DEFAULT_PORT)
-      Bossan.run(proc {|env|
-                   @env = env.dup
-                   assert_equal(IO, @env["rack.input"].class)
-                   body = RESPONSE
-                   [200,
-                    {
-                      'Content-type'=> 'text/plain',
-                      'Content-length'=> RESPONSE.join.size.to_s
-                    },
-                    body
-                   ]
-                 })
-    end
-    Process.detach pid
-    sleep 2
-
-    uri = URI.parse("http://0.0.0.0:8000/")
+    uri = URI.parse("http://#{host()}:#{port()}/")
     Net::HTTP.start(uri.host, uri.port){|http|
       header = {
         "user-agent" => "Ruby/#{RUBY_VERSION} MyHttpClient"
       }
       body = "A" * 1024 * 513 # 513K
       response = http.post(uri.path, body, header)
+      assert_equal("IO", response.body)
     }
-  ensure
-    Process.kill(:INT, pid)
   end
-
 end

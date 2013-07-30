@@ -17,6 +17,5 @@ task :clean do
 end
 
 task :test do
-  Dir.chdir File.expand_path("../test", __FILE__)
-  sh "ruby test_rack_spec.rb"
+  sh "ruby test/driver.rb"
 end
