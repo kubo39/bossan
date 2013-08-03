@@ -38,14 +38,15 @@ module Bossan::Test
     def check_output_log
       @mocked_stdout.rewind
       server_stdout_log = @mocked_stdout.read
-      unless server_stdout_log == "Bye.\n"
+      server_stdout_log.sub!("Bye.\n", "")
+      unless server_stdout_log.empty?
         puts "! Something wrong on server. stdout:"
-        print server_stdout_log
+        puts server_stdout_log
       end
 
       @mocked_stderr.rewind
       server_stderr_log = @mocked_stderr.read
-      unless server_stderr_log == ""
+      unless server_stderr_log.empty?
         puts "! Something wrong on server. stderr:"
         print server_stderr_log
       end
@@ -61,6 +62,8 @@ module Bossan::Test
         trap(:INT) { Bossan.stop }
         Bossan.listen(host, port)
         Bossan.run(app)
+        @mocked_stdout.close
+        @mocked_stderr.close
       end
 
       Process.detach @pid
