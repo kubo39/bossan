@@ -2472,6 +2472,9 @@ bossan_run_loop(VALUE self, VALUE args)
   if(unix_sock_name){
     unlink(unix_sock_name);
   }
+  if(listen_sock){
+    close(listen_sock);
+  }
   printf("Bye.\n");
   return Qnil;
 }
