@@ -1,0 +1,7 @@
+require './test/test_rack_spec'
+require './test/test_rack_err_spec'
+require './test/test_rack_evil'
+require './test/test_rack_chunk_response'
+require './test/test_rack_env_big_message_body'
+require './test/test_rack_env_simple_get'
+require './test/test_rack_env_simple_query'
