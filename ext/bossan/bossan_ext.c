@@ -133,6 +133,7 @@ static ID i_write;
 static ID i_seek;
 static ID i_toa;
 static ID i_next;
+static ID i_join;
 
 static VALUE default_path_string;
 
@@ -1853,7 +1854,7 @@ process_rack_app(client_t *cli)
 
   if (TYPE(response_body) == T_ARRAY) {
     cli->response_body_type = T_ARRAY;
-    cli->response_iter = rb_funcall(response_body, rb_intern("join"), 0);
+    cli->response_iter = rb_funcall(response_body, i_join, 0);
   } else {
     cli->response_body_type = 0; // TODO: fix
     cli->response_iter = rb_funcall(response_body, i_toenum, 0);
@@ -2649,14 +2650,17 @@ Init_bossan_ext(void)
   empty_string = rb_obj_freeze(rb_str_new2(""));
   rb_gc_register_address(&empty_string);
 
-  rb_gc_register_address(&i_keys);
-  rb_gc_register_address(&i_call);
   rb_gc_register_address(&i_new);
+  rb_gc_register_address(&i_call);
+  rb_gc_register_address(&i_keys);
   rb_gc_register_address(&i_each);
   rb_gc_register_address(&i_toenum);
   rb_gc_register_address(&i_close);
   rb_gc_register_address(&i_write);
   rb_gc_register_address(&i_seek);
+  rb_gc_register_address(&i_toa);
+  rb_gc_register_address(&i_next);
+  rb_gc_register_address(&i_join);
 
   rb_gc_register_address(&rack_app); //rack app
 
@@ -2670,6 +2674,7 @@ Init_bossan_ext(void)
   i_seek = rb_intern("seek");
   i_toa = rb_intern("to_a");
   i_next = rb_intern("next");
+  i_join = rb_intern("join");
 
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);
