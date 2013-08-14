@@ -133,6 +133,7 @@ static ID i_write;
 static ID i_seek;
 static ID i_toa;
 static ID i_next;
+static ID i_join;
 
 static VALUE default_path_string;
 
@@ -741,50 +742,52 @@ processs_write(client_t *client)
   DEBUG("process_write start");
   iterator = client->response_iter;
 
-  while ( (item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL)) != Qnil ) {
+  if (client->response_body_type != T_ARRAY) {
+    while ( (item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL)) != Qnil ) {
 
-    buf = StringValuePtr(item);
-    buflen = RSTRING_LEN(item);
+      buf = StringValuePtr(item);
+      buflen = RSTRING_LEN(item);
 
-    //write
-    if(client->chunked_response){
-      bucket = new_write_bucket(client->fd, 4);
-      if(bucket == NULL){
-	return STATUS_ERROR;
+      //write
+      if(client->chunked_response){
+	bucket = new_write_bucket(client->fd, 4);
+	if(bucket == NULL){
+	  return STATUS_ERROR;
+	}
+	char *lendata = NULL;
+	ssize_t len = 0;
+
+	VALUE chunk_data = get_chunk_data(buflen);
+	//TODO CHECK ERROR
+	lendata = StringValuePtr(chunk_data);
+	len = RSTRING_LEN(chunk_data);
+
+	set_chunked_data(bucket, lendata, len, buf, buflen);
+	bucket->chunk_data = chunk_data;
+      } else {
+	bucket = new_write_bucket(client->fd, 1);
+	if(bucket == NULL){
+	  return STATUS_ERROR;
+	}
+	set2bucket(bucket, buf, buflen);
       }
-      char *lendata = NULL;
-      ssize_t len = 0;
+      bucket->temp1 = item;
 
-      VALUE chunk_data = get_chunk_data(buflen);
-      //TODO CHECK ERROR
-      lendata = StringValuePtr(chunk_data);
-      len = RSTRING_LEN(chunk_data);
-
-      set_chunked_data(bucket, lendata, len, buf, buflen);
-      bucket->chunk_data = chunk_data;
-    } else {
-      bucket = new_write_bucket(client->fd, 1);
-      if(bucket == NULL){
-	return STATUS_ERROR;
+      ret = writev_bucket(bucket);
+      if(ret != STATUS_OK){
+	client->bucket = bucket;
+	return ret;
       }
-      set2bucket(bucket, buf, buflen);
-    }
-    bucket->temp1 = item;
 
-    ret = writev_bucket(bucket);
-    if(ret != STATUS_OK){
-      client->bucket = bucket;
-      return ret;
-    }
-
-    free_write_bucket(bucket);
-    //mark
-    client->write_bytes += buflen;
-    //check write_bytes/content_length
-    if(client->content_length_set){
-      if(client->content_length <= client->write_bytes){
-	// all done
-	break;
+      free_write_bucket(bucket);
+      //mark
+      client->write_bytes += buflen;
+      //check write_bytes/content_length
+      if(client->content_length_set){
+	if(client->content_length <= client->write_bytes){
+	  // all done
+	  break;
+	}
       }
     }
   }
@@ -838,14 +841,20 @@ start_response_write(client_t *client)
   VALUE item;
   char *buf = NULL;
   ssize_t buflen = NULL;
-    
-  item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL);
-  DEBUG("client %p :fd %d", client, client->fd);
 
-  if (item != Qnil) {
-    //write string only
+  if (client->response_body_type == T_ARRAY) {
+    item = client->response_iter;
     buf = StringValuePtr(item);
     buflen = RSTRING_LEN(item);
+  } else {
+    item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL);
+    DEBUG("client %p :fd %d", client, client->fd);
+
+    if (item != Qnil) {
+      //write string only
+      buf = StringValuePtr(item);
+      buflen = RSTRING_LEN(item);
+    }
   }
 
   /* DEBUG("status_code %d body:%.*s", client->status_code, (int)buflen, buf); */
@@ -1842,7 +1851,14 @@ process_rack_app(client_t *cli)
 
   cli->status_code = NUM2INT(status_code);
   cli->headers = headers;
-  cli->response_iter = rb_funcall(response_body, i_toenum, 0);
+
+  if (TYPE(response_body) == T_ARRAY) {
+    cli->response_body_type = T_ARRAY;
+    cli->response_iter = rb_funcall(response_body, i_join, 0);
+  } else {
+    cli->response_body_type = 0; // TODO: fix
+    cli->response_iter = rb_funcall(response_body, i_toenum, 0);
+  }
 
   rb_gc_register_address(&cli->headers);
   rb_gc_register_address(&cli->response_iter);
@@ -2634,14 +2650,17 @@ Init_bossan_ext(void)
   empty_string = rb_obj_freeze(rb_str_new2(""));
   rb_gc_register_address(&empty_string);
 
-  rb_gc_register_address(&i_keys);
-  rb_gc_register_address(&i_call);
   rb_gc_register_address(&i_new);
+  rb_gc_register_address(&i_call);
+  rb_gc_register_address(&i_keys);
   rb_gc_register_address(&i_each);
   rb_gc_register_address(&i_toenum);
   rb_gc_register_address(&i_close);
   rb_gc_register_address(&i_write);
   rb_gc_register_address(&i_seek);
+  rb_gc_register_address(&i_toa);
+  rb_gc_register_address(&i_next);
+  rb_gc_register_address(&i_join);
 
   rb_gc_register_address(&rack_app); //rack app
 
@@ -2655,6 +2674,7 @@ Init_bossan_ext(void)
   i_seek = rb_intern("seek");
   i_toa = rb_intern("to_a");
   i_next = rb_intern("next");
+  i_join = rb_intern("join");
 
   server = rb_define_module("Bossan");
   rb_gc_register_address(&server);

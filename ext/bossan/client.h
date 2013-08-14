@@ -29,6 +29,8 @@ typedef struct _client {
   uint32_t write_bytes;            // send body length
   void *bucket;               //write_data
   uint8_t response_closed;    //response closed flag
+
+  int response_body_type;  // response body type
 } client_t;
 
 #endif
