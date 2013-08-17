@@ -1214,6 +1214,7 @@ header_field_cb(http_parser *p, const char *buf, size_t len)
   }
 
   req->field = obj;
+  rb_gc_register_address(&req->field);
   req->last_header_element = FIELD;
   return 0;
 }
@@ -1240,6 +1241,7 @@ header_value_cb(http_parser *p, const char *buf, size_t len)
     return -1;
   }
   req->value = obj;
+  rb_gc_register_address(&req->value);
   req->last_header_element = VAL;
   return 0;
 }
@@ -1354,7 +1356,6 @@ headers_complete_cb(http_parser *p)
   //Last header
   if(likely(req->field && req->value)){
     rb_hash_aset(env, req->field, req->value);
-
     req->field = NULL;
     req->value = NULL;
   }
