@@ -1855,7 +1855,7 @@ process_rack_app(client_t *cli)
 
   if (TYPE(response_body) == T_ARRAY) {
     cli->response_body_type = T_ARRAY;
-    cli->response_iter = rb_funcall(response_body, i_join, 0);
+    cli->response_iter = rb_ary_join(response_body, rb_str_new2(""));
   } else {
     cli->response_body_type = 0; // TODO: fix
     cli->response_iter = rb_funcall(response_body, i_toenum, 0);
