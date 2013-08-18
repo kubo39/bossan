@@ -1876,7 +1876,7 @@ process_rack_app(client_t *cli)
   char* reason_phrase;
   reason_phrase = get_reason_phrase(cli->status_code);
 
-  char buff[256];
+  char buff[64];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
   cli->http_status = rb_str_new(buff, strlen(buff));
   rb_gc_register_address(&cli->http_status);
