@@ -2651,18 +2651,6 @@ Init_bossan_ext(void)
   empty_string = rb_obj_freeze(rb_str_new2(""));
   rb_gc_register_address(&empty_string);
 
-  rb_gc_register_address(&i_new);
-  rb_gc_register_address(&i_call);
-  rb_gc_register_address(&i_keys);
-  rb_gc_register_address(&i_each);
-  rb_gc_register_address(&i_toenum);
-  rb_gc_register_address(&i_close);
-  rb_gc_register_address(&i_write);
-  rb_gc_register_address(&i_seek);
-  rb_gc_register_address(&i_toa);
-  rb_gc_register_address(&i_next);
-  rb_gc_register_address(&i_join);
-
   rb_gc_register_address(&rack_app); //rack app
 
   i_new = rb_intern("new");
