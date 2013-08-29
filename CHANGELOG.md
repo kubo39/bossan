@@ -2,7 +2,7 @@
 
 ### v0.4.4
 
-(Bug release. release 2013-XX-XX)
+(Bug release. release 2013-08-30)
 
 * return BadRequest when invalid encoded url
 
