@@ -194,7 +194,7 @@ w_callback(picoev_loop* loop, int fd, int events, void* cb_arg);
 static void
 call_rack_app(client_t *client);
 
-static void
+static int
 prepare_call_rack(client_t *client);
 
 int
@@ -1698,8 +1698,9 @@ close_client(client_t *client)
   if (client->request_queue->size > 0) {
     /* if (check_status_code(client) > 0) { */
     //process pipeline
-    prepare_call_rack(client);
-    call_rack_app(client);
+    if (prepare_call_rack(client) > 0) {
+      call_rack_app(client);
+    }
     /* } */
     return;
   }
@@ -1998,7 +1999,7 @@ set_current_request(client_t *client)
 }
 
 
-static void
+static int
 prepare_call_rack(client_t *client)
 {
   request *req = NULL;
@@ -2009,7 +2010,7 @@ prepare_call_rack(client_t *client)
 
   //check Expect
   if (check_http_expect(client) < 0) {
-    return;
+    return -1;
   }
 
   if (req->body_type == BODY_TYPE_TMPFILE) {
@@ -2037,6 +2038,7 @@ prepare_call_rack(client_t *client)
   if(!is_keep_alive){
     client->keep_alive = 0;
   }
+  return 1;
 }
 
 
@@ -2181,8 +2183,9 @@ r_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
     picoev_del(loop, cli->fd);
     RDEBUG("del fd: %d", cli->fd);
     if (check_status_code(cli) > 0) {
-      prepare_call_rack(cli);
-      call_rack_app(cli);
+      if(prepare_call_rack(cli) > 0) {
+        call_rack_app(cli);
+      }
     }
     return;
   }
@@ -2231,8 +2234,9 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
 	if (finish == 1) {
 	  if (check_status_code(client) > 0) {
 	    //current request ok
-	    prepare_call_rack(client);
-	    call_rack_app(client);
+	    if (prepare_call_rack(client) > 0) {
+          call_rack_app(client);
+        }
 	  }
 	} else if (finish == 0) {
 	  picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
