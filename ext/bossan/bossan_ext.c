@@ -302,15 +302,15 @@ write_access_log(client_t *cli, int log_fd, const char *log_path)
     cache_time_update();
         
     sprintf(buf, "%s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"\n",
-	    cli->remote_addr,
-	    http_log_time,
-	    method,
-	    path,
-	    version,
-	    cli->status_code,
-	    cli->write_bytes,
-	    referer,
-	    ua);
+            cli->remote_addr,
+            http_log_time,
+            method,
+            path,
+            version,
+            cli->status_code,
+            cli->write_bytes,
+            referer,
+            ua);
     return write_log(log_path, log_fd, buf, strlen(buf));
   }
   return 0;
@@ -332,27 +332,27 @@ blocking_write(client_t *client, char *data, size_t len)
       break;
     case -1:
       if (errno == EAGAIN || errno == EWOULDBLOCK) { /* try again later */
-	usleep(500); //TODO try again later
-	break;
+        usleep(500); //TODO try again later
+        break;
       }else{
-	// fatal error
-	//close
+        // fatal error
+        //close
 
-	if(errno == EPIPE){
-	  // Connection reset by peer
-	  client->keep_alive = 0;
-	  client->status_code = 500;
-	  client->header_done = 1;
-	  client->response_closed = 1;
+        if(errno == EPIPE){
+          // Connection reset by peer
+          client->keep_alive = 0;
+          client->status_code = 500;
+          client->header_done = 1;
+          client->response_closed = 1;
 
-	}else{
-	  // TODO:
-	  // raise exception from errno
+        }else{
+          // TODO:
+          // raise exception from errno
 
-	  write_error_log(__FILE__, __LINE__);
-	  client->keep_alive = 0;
-	}
-	return -1;
+          write_error_log(__FILE__, __LINE__);
+          client->keep_alive = 0;
+        }
+        return -1;
       }
     default:
       data += (int)r;
@@ -526,15 +526,15 @@ writev_bucket(write_bucket *data)
   }else{
     if(data->total > w){
       for(; i < data->iov_cnt;i++){
-	if(w > data->iov[i].iov_len){
-	  //already write
-	  w -= data->iov[i].iov_len;
-	  data->iov[i].iov_len = 0;
-	}else{
-	  data->iov[i].iov_base += w;
-	  data->iov[i].iov_len = data->iov[i].iov_len - w;
-	  break;
-	}
+        if(w > data->iov[i].iov_len){
+          //already write
+          w -= data->iov[i].iov_len;
+          data->iov[i].iov_len = 0;
+        }else{
+          data->iov[i].iov_base += w;
+          data->iov[i].iov_len = data->iov[i].iov_len - w;
+          break;
+        }
       }
       data->total = data->total - w;
       DEBUG("writev_bucket write %d progeress %d/%d \n", w, data->total, data->total_size);
@@ -654,7 +654,7 @@ write_headers(client_t *client, char *data, size_t datalen)
       errno = 0;
       l = strtol(v, &v, 10);
       if (*v || errno == ERANGE || l < 0) {
-	goto error;
+        goto error;
       }
       client->content_length_set = 1;
       client->content_length = l;
@@ -750,33 +750,33 @@ processs_write(client_t *client)
 
       //write
       if(client->chunked_response){
-	bucket = new_write_bucket(client->fd, 4);
-	if(bucket == NULL){
-	  return STATUS_ERROR;
-	}
-	char *lendata = NULL;
-	ssize_t len = 0;
+        bucket = new_write_bucket(client->fd, 4);
+        if(bucket == NULL){
+          return STATUS_ERROR;
+        }
+        char *lendata = NULL;
+        ssize_t len = 0;
 
-	VALUE chunk_data = get_chunk_data(buflen);
-	//TODO CHECK ERROR
-	lendata = StringValuePtr(chunk_data);
-	len = RSTRING_LEN(chunk_data);
+        VALUE chunk_data = get_chunk_data(buflen);
+        //TODO CHECK ERROR
+        lendata = StringValuePtr(chunk_data);
+        len = RSTRING_LEN(chunk_data);
 
-	set_chunked_data(bucket, lendata, len, buf, buflen);
-	bucket->chunk_data = chunk_data;
+        set_chunked_data(bucket, lendata, len, buf, buflen);
+        bucket->chunk_data = chunk_data;
       } else {
-	bucket = new_write_bucket(client->fd, 1);
-	if(bucket == NULL){
-	  return STATUS_ERROR;
-	}
-	set2bucket(bucket, buf, buflen);
+        bucket = new_write_bucket(client->fd, 1);
+        if(bucket == NULL){
+          return STATUS_ERROR;
+        }
+        set2bucket(bucket, buf, buflen);
       }
       bucket->temp1 = item;
 
       ret = writev_bucket(bucket);
       if(ret != STATUS_OK){
-	client->bucket = bucket;
-	return ret;
+        client->bucket = bucket;
+        return ret;
       }
 
       free_write_bucket(bucket);
@@ -784,10 +784,10 @@ processs_write(client_t *client)
       client->write_bytes += buflen;
       //check write_bytes/content_length
       if(client->content_length_set){
-	if(client->content_length <= client->write_bytes){
-	  // all done
-	  break;
-	}
+        if(client->content_length <= client->write_bytes){
+          // all done
+          break;
+        }
       }
     }
   }
@@ -892,9 +892,9 @@ key_upper(char *s, const char *key, size_t len)
       s[i] = '_';
     }else{
       if(islower(c)){
-	s[i] = toupper(c);
+        s[i] = toupper(c);
       }else{
-	s[i] = c;
+        s[i] = c;
       }
     }
   }
@@ -1001,12 +1001,12 @@ urldecode(char *buf)
     if(c == '%' && len > 2){
       c = *buf++;
       if (!isxdigit(c)) {
-	return -1;
+        return -1;
       }
       c1 = c;
       c = *buf++;
       if (!isxdigit(c)) {
-	return -1;
+        return -1;
       }
       c = hex2int(c1) * 16 + hex2int(c);
       len -= 2;
@@ -1099,8 +1099,8 @@ set_path(VALUE env, char *buf, int len)
     }else if(c == '?'){
       //stop
       if(set_query(env, buf, len) == -1){
-	//Error
-	return -1;
+        //Error
+        return -1;
       }
       break;
     }else if(c == '#'){
@@ -1292,8 +1292,8 @@ body_cb(http_parser *p, const char *buf, size_t len)
       //large size request
       FILE *tmp = tmpfile();
       if(tmp < 0){
-	req->bad_request_code = 500;
-	return -1;
+        req->bad_request_code = 500;
+        return -1;
       }
       req->body = tmp;
       req->body_type = BODY_TYPE_TMPFILE;
@@ -1451,12 +1451,12 @@ message_complete_cb (http_parser *p)
 
 static http_parser_settings settings =
   {.on_message_begin = message_begin_cb
-  ,.on_header_field = header_field_cb
-  ,.on_header_value = header_value_cb
-  ,.on_url = request_uri_cb
-  ,.on_body = body_cb
-  ,.on_headers_complete = headers_complete_cb
-  ,.on_message_complete = message_complete_cb
+   ,.on_header_field = header_field_cb
+   ,.on_header_value = header_value_cb
+   ,.on_url = request_uri_cb
+   ,.on_body = body_cb
+   ,.on_headers_complete = headers_complete_cb
+   ,.on_message_complete = message_complete_cb
   };
 
 
@@ -1648,11 +1648,11 @@ clean_client(client_t *client)
       environ = req->environ;
       end = current_msec;
       if (req->start_msec > 0){
-	delta_msec = end - req->start_msec;
-    }
+        delta_msec = end - req->start_msec;
+      }
     } else {
       if (client->status_code != 408) {
-	environ = new_environ(client);
+        environ = new_environ(client);
       }
     }
   }
@@ -1756,23 +1756,23 @@ get_reason_phrase(int status_code)
   } else if (status_code == 300) {
     return "Multiple Choices";
   } else if (status_code == 301) {
-     return "Moved Permanently";
+    return "Moved Permanently";
   } else if (status_code == 302) {
-     return "Found";
+    return "Found";
   } else if (status_code == 303) {
-     return "See Other";
+    return "See Other";
   } else if (status_code == 304) {
-     return "Not Modified";
+    return "Not Modified";
   } else if (status_code == 305) {
-     return "Use Proxy";
+    return "Use Proxy";
   } else if (status_code == 307) {
-     return "Temporary Redirect";
+    return "Temporary Redirect";
   } else if (status_code == 400) {
-     return "Bad Request";
+    return "Bad Request";
   } else if (status_code == 401) {
-     return "Unauthorized";
+    return "Unauthorized";
   } else if (status_code == 402) {
-     return "Payment Required";
+    return "Payment Required";
   } else if (status_code == 403) {
     return "Forbidden";
   } else if (status_code == 404) {
@@ -1929,22 +1929,22 @@ check_http_expect(client_t *client)
     if (c != Qnil) {
       val = StringValuePtr(c);
       if (!strncasecmp(val, "100-continue", 12)) {
-	ret = write(client->fd, "HTTP/1.1 100 Continue\r\n\r\n", 25);
-	if (ret < 0) {
-	  //fail
-	  client->keep_alive = 0;
-	  client->status_code = 500;
-	  send_error_page(client);
-	  close_client(client);
-	  return -1;
-	}
+        ret = write(client->fd, "HTTP/1.1 100 Continue\r\n\r\n", 25);
+        if (ret < 0) {
+          //fail
+          client->keep_alive = 0;
+          client->status_code = 500;
+          send_error_page(client);
+          close_client(client);
+          return -1;
+        }
       } else {
-	//417
-	client->keep_alive = 0;
-	client->status_code = 417;
-	send_error_page(client);
-	close_client(client);
-	return -1;
+        //417
+        client->keep_alive = 0;
+        client->status_code = 417;
+        send_error_page(client);
+        close_client(client);
+        return -1;
       }
     }
     return 1;
@@ -2153,8 +2153,8 @@ read_request(picoev_loop *loop, int fd, client_t *client, char call_time_update)
       // Fatal error
       client->keep_alive = 0;
       if (errno == ECONNRESET) {
-	client->header_done = 1;
-	client->response_closed = 1;
+        client->header_done = 1;
+        client->response_closed = 1;
       }
       return set_read_error(client, 500);
     }
@@ -2216,38 +2216,38 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
       client_fd = accept(fd, (struct sockaddr *)&client_addr, &client_len);
 #endif
       if (client_fd != -1) {
-	DEBUG("accept fd %d \n", client_fd);
+        DEBUG("accept fd %d \n", client_fd);
 
-	if (setup_sock(client_fd) == -1) {
-	  write_error_log(__FILE__, __LINE__);
-	  // die
-	  loop_done = 0;
-	  return;
-	}
-
-	remote_addr = inet_ntoa(client_addr.sin_addr);
-	remote_port = ntohs(client_addr.sin_port);
-	client = new_client_t(client_fd, remote_addr, remote_port);
-	init_parser(client, server_name, server_port);
-
-	finish = read_request(loop, fd, client, 1);
-	if (finish == 1) {
-	  if (check_status_code(client) > 0) {
-	    //current request ok
-	    if (prepare_call_rack(client) > 0) {
-          call_rack_app(client);
+        if (setup_sock(client_fd) == -1) {
+          write_error_log(__FILE__, __LINE__);
+          // die
+          loop_done = 0;
+          return;
         }
-	  }
-	} else if (finish == 0) {
-	  picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
-	}
+
+        remote_addr = inet_ntoa(client_addr.sin_addr);
+        remote_port = ntohs(client_addr.sin_port);
+        client = new_client_t(client_fd, remote_addr, remote_port);
+        init_parser(client, server_name, server_port);
+
+        finish = read_request(loop, fd, client, 1);
+        if (finish == 1) {
+          if (check_status_code(client) > 0) {
+            //current request ok
+            if (prepare_call_rack(client) > 0) {
+              call_rack_app(client);
+            }
+          }
+        } else if (finish == 0) {
+          picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
+        }
       } else {
-	if (errno != EAGAIN && errno != EWOULDBLOCK) {
-	  write_error_log(__FILE__, __LINE__);
-	  // die
-	  loop_done = 0;
-	}
-      	break;
+        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+          write_error_log(__FILE__, __LINE__);
+          // die
+          loop_done = 0;
+        }
+        break;
       }
     }
   }
@@ -2286,12 +2286,12 @@ inet_listen(void)
   // loop through all the results and bind to the first we can
   for(p = servinfo; p != NULL; p = p->ai_next) {
     if ((listen_sock = socket(p->ai_family, p->ai_socktype,
-			      p->ai_protocol)) == -1) {
+                              p->ai_protocol)) == -1) {
       continue;
     }
     
     if (setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &flag,
-		   sizeof(int)) == -1) {
+                   sizeof(int)) == -1) {
       close(listen_sock);
       return -1;
     }
@@ -2348,7 +2348,7 @@ unix_listen(char *sock_name)
   }
 
   if (setsockopt(listen_sock, SOL_SOCKET, SO_REUSEADDR, &flag,
-		 sizeof(int)) == -1) {
+                 sizeof(int)) == -1) {
     close(listen_sock);
     rb_raise(rb_eIOError, "server: failed to set sockopt\n");
   }
