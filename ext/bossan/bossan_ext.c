@@ -1597,17 +1597,6 @@ setup_sock(int fd)
   int r;
   int on = 1;
   r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
-
-  // 60 + 30 * 4
-  /* on = 300; */
-  /* r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &on, sizeof(on)); */
-  /* assert(r == 0); */
-  /* on = 30; */
-  /* r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &on, sizeof(on)); */
-  /* assert(r == 0); */
-  /* on = 4; */
-  /* r = setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &on, sizeof(on)); */
-  /* assert(r == 0); */
 #if linux
   r = 0; // Use accept4() on Linux
 #else
