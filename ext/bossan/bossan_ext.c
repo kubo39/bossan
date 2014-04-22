@@ -1597,7 +1597,7 @@ setup_sock(int fd)
   int r;
   int on = 1;
   r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
-#if linux
+#ifdef linux
   r = 0; // Use accept4() on Linux
 #else
   r = fcntl(fd, F_SETFL, O_NONBLOCK);
