@@ -5,7 +5,7 @@ require 'net/http'
 require 'tempfile'
 
 module Bossan::Test
-  class TestCase < Test::Unit::TestCase
+  class TestCase < MiniTest::Test
     def setup
       super
       check_app
