@@ -35,6 +35,6 @@ class RackEnvSimpleGetTest < Bossan::Test::TestCase
     assert_equal("GET", env["REQUEST_METHOD"])
     assert_equal("localhost", env["SERVER_NAME"])
     assert_equal("8000", env["SERVER_PORT"])
-    assert_not_equal("", env["HTTP_USER_AGENT"])
+    refute_equal("", env["HTTP_USER_AGENT"])
   end
 end
