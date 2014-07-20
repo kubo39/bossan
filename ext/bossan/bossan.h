@@ -20,6 +20,7 @@
 #include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/file.h>
+#include <sys/resource.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>

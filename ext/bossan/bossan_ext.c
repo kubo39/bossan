@@ -2253,6 +2253,19 @@ setup_server_env(void)
 }
 
 
+static void set_fd_limit(int nofiles) {
+  struct rlimit rlim;
+  getrlimit (RLIMIT_NOFILE, &rlim);
+  if (nofiles >= 0) {
+    rlim.rlim_cur = nofiles;
+    if ((unsigned int)nofiles > rlim.rlim_max) {
+      rlim.rlim_max = nofiles;
+    }
+    setrlimit (RLIMIT_NOFILE, &rlim);
+  }
+}
+
+
 static int
 inet_listen(void)
 {
@@ -2577,6 +2590,8 @@ bossan_get_backlog(VALUE self)
 void
 Init_bossan_ext(void)
 {
+  set_fd_limit(20000); // set resource limit
+
   rb_gc_register_address(&version_key);
   rb_gc_register_address(&version_val);
   rb_gc_register_address(&scheme_key);
