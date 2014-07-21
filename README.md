@@ -6,7 +6,7 @@ Bossan is a high performance asynchronous ruby's rack web server.
 
 ## Requirements
 
-Bossan requires Ruby 1.9.2 or later.
+Bossan requires Ruby 2.1.0 or later.
 
 Bossan supports Linux, FreeBSD and MacOSX(need gcc>=4.2).
 

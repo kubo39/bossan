@@ -1,7 +1,7 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-#include "ruby.h"
+#include "bossan.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

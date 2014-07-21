@@ -17,6 +17,6 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib", "ext"]
   gem.test_files = `git ls-files -- {test,spec,features}/*`.split($/)
  
-  gem.required_ruby_version = ">= 1.9.2"
+  gem.required_ruby_version = ">= 2.1.0"
   gem.add_dependency "rack", ["~> 1.2"]
 end
