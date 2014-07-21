@@ -1530,7 +1530,7 @@ setup_static_env(char *name, int port)
   request_method = rb_obj_freeze(rb_enc_str_new_cstr("REQUEST_METHOD", u8_encoding));
   rb_remote_addr = rb_obj_freeze(rb_enc_str_new_cstr("REMOTE_ADDR", u8_encoding));
   rb_remote_port = rb_obj_freeze(rb_enc_str_new_cstr("REMOTE_PORT", u8_encoding));
-  rack_input = rb_obj_freeze(rb_enc_str_new_cstr("rack.input"));
+  rack_input = rb_obj_freeze(rb_enc_str_new_cstr("rack.input", u8_encoding));
   http_connection = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_CONNECTION", u8_encoding));
 
   content_type = rb_obj_freeze(rb_enc_str_new_cstr("CONTENT_TYPE", u8_encoding));
