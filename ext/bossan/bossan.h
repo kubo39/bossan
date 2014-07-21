@@ -2,6 +2,8 @@
 #define BOSSAN_H
 
 #include "ruby.h"
+#include "ruby/encoding.h"
+
 #include <assert.h>
 #include <fcntl.h> 
 #include <stddef.h>
@@ -24,6 +26,9 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <netdb.h>
+
+
+extern rb_encoding* u8_encoding;
 
 /* #define DEVELOP */
 

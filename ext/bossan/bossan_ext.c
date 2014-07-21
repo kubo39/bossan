@@ -162,6 +162,7 @@ int max_content_length = 1024 * 1024 * 16; //max_content_length
 int client_body_buffer_size = 1024 * 500;  //client_body_buffer_size
 
 static VALUE StringIO;
+rb_encoding* u8_encoding;
 
 typedef struct iovec iovec_t;
 
@@ -555,7 +556,7 @@ get_chunk_data(size_t datalen)
   int i = 0;
   i = snprintf(lendata, 32, "%zx", datalen);
   DEBUG("Transfer-Encoding chunk_size %s", lendata);
-  return rb_str_new(lendata, i);
+  return rb_enc_str_new(lendata, i, u8_encoding);
 }
 
 
@@ -915,7 +916,7 @@ write_body2file(request *req, const char *buffer, size_t buf_len)
 static int
 write_body2mem(request *req, const char *buffer, size_t buf_len)
 {
-  rb_funcall((VALUE)req->body, i_write, 1, rb_str_new(buffer, buf_len));
+  rb_funcall((VALUE)req->body, i_write, 1, rb_enc_str_new(buffer, buf_len, u8_encoding));
   req->body_readed += buf_len;
   DEBUG("write_body2mem %d bytes \n", buf_len);
   return req->body_readed;
@@ -966,11 +967,11 @@ new_environ(client_t *client)
   rb_hash_aset(environ, server_name_key, server_name_val);
   rb_hash_aset(environ, server_port_key, server_port_val);
 
-  object = rb_str_new2(client->remote_addr);
+  object = rb_enc_str_new_cstr(client->remote_addr, u8_encoding);
   rb_hash_aset(environ, rb_remote_addr, object);
 
   sprintf(r_port, "%d", client->remote_port);
-  object = rb_str_new2(r_port);
+  object = rb_enc_str_new_cstr(r_port, u8_encoding);
   rb_hash_aset(environ, rb_remote_port, object);
   return environ;
 }
@@ -1028,7 +1029,7 @@ concat_string(VALUE o, const char *buf, size_t len)
     
   l = RSTRING_LEN(o);
 
-  ret = rb_str_new((char*)0, l + len);
+  ret = rb_enc_str_new((char*)0, l + len, u8_encoding);
   if(ret == NULL){
     return ret;
   }
@@ -1073,7 +1074,7 @@ set_query(VALUE env, char *buf, int len)
   }
 
   if(slen > 1){
-    obj = rb_str_new(s0, slen-1);
+    obj = rb_enc_str_new(s0, slen-1, u8_encoding);
     rb_hash_aset(env, query_string, obj);
   }
   return 1; 
@@ -1116,7 +1117,7 @@ set_path(VALUE env, char *buf, int len)
     return -1;
   }
 
-  obj = rb_str_new(s0, slen);
+  obj = rb_enc_str_new(s0, slen, u8_encoding);
 
   rb_hash_aset(env, path_info, obj);
 
@@ -1134,7 +1135,7 @@ get_http_header_key(const char *s, int len)
   char *dest;
   char c;
 
-  obj = rb_str_new("", len + prefix_len);
+  obj = rb_enc_str_new("", len + prefix_len, u8_encoding);
   dest = (char*)StringValuePtr(obj);
 
   *dest++ = 'H';
@@ -1227,7 +1228,7 @@ header_value_cb(http_parser *p, const char *buf, size_t len)
   VALUE obj;
     
   if(likely(req->value == NULL)){
-    obj = rb_str_new(buf, len);
+    obj = rb_enc_str_new(buf, len, u8_encoding);
   }else{
     obj = concat_string(req->value, buf, len);
   }
@@ -1301,7 +1302,7 @@ body_cb(http_parser *p, const char *buf, size_t len)
     }else{
       //default memory stream
       DEBUG("client->body_length %d \n", req->body_length);
-      req->body = rb_funcall(StringIO, i_new, 1, rb_str_new2(""));
+      req->body = rb_funcall(StringIO, i_new, 1, rb_enc_str_new_cstr("", u8_encoding));
       req->body_type = BODY_TYPE_BUFFER;
       DEBUG("BODY_TYPE_BUFFER");
     }
@@ -1494,77 +1495,77 @@ setup_static_env(char *name, int port)
   prefix_len = strlen("HTTP_");
 
   version_val = rb_obj_freeze(rb_ary_new3(2, INT2FIX(1), INT2FIX(1)));
-  version_key = rb_obj_freeze(rb_str_new2("rack.version"));
+  version_key = rb_obj_freeze(rb_enc_str_new_cstr("rack.version", u8_encoding));
   
-  scheme_val = rb_obj_freeze(rb_str_new2("http"));
-  scheme_key = rb_obj_freeze(rb_str_new2("rack.url_scheme"));
+  scheme_val = rb_obj_freeze(rb_enc_str_new_cstr("http", u8_encoding));
+  scheme_key = rb_obj_freeze(rb_enc_str_new_cstr("rack.url_scheme", u8_encoding));
 
   errors_val = rb_stderr;
-  errors_key = rb_obj_freeze(rb_str_new2("rack.errors"));
+  errors_key = rb_obj_freeze(rb_enc_str_new_cstr("rack.errors", u8_encoding));
 
   multithread_val = Qfalse;
-  multithread_key = rb_obj_freeze(rb_str_new2("rack.multithread"));
+  multithread_key = rb_obj_freeze(rb_enc_str_new_cstr("rack.multithread", u8_encoding));
 
   multiprocess_val = Qfalse; /* or Qtrue? I have no clue.. */ 
-  multiprocess_key = rb_obj_freeze(rb_str_new2("rack.multiprocess"));
+  multiprocess_key = rb_obj_freeze(rb_enc_str_new_cstr("rack.multiprocess", u8_encoding));
 
   run_once_val = Qfalse;
-  run_once_key = rb_obj_freeze(rb_str_new2("rack.run_once"));
+  run_once_key = rb_obj_freeze(rb_enc_str_new_cstr("rack.run_once", u8_encoding));
 
   script_val = empty_string;
-  script_key = rb_obj_freeze(rb_str_new2("SCRIPT_NAME"));
+  script_key = rb_obj_freeze(rb_enc_str_new_cstr("SCRIPT_NAME", u8_encoding));
 
-  server_name_val = rb_obj_freeze(rb_str_new2(name));
-  server_name_key = rb_obj_freeze(rb_str_new2("SERVER_NAME"));
+  server_name_val = rb_obj_freeze(rb_enc_str_new_cstr(name, u8_encoding));
+  server_name_key = rb_obj_freeze(rb_enc_str_new_cstr("SERVER_NAME", u8_encoding));
   
   sprintf(vport, "%d", port);
-  server_port_val = rb_obj_freeze(rb_str_new2(vport));
-  server_port_key = rb_obj_freeze(rb_str_new2("SERVER_PORT"));
+  server_port_val = rb_obj_freeze(rb_enc_str_new_cstr(vport, u8_encoding));
+  server_port_key = rb_obj_freeze(rb_enc_str_new_cstr("SERVER_PORT", u8_encoding));
 
-  server_protocol = rb_obj_freeze(rb_str_new2("SERVER_PROTOCOL"));
-  path_info = rb_obj_freeze(rb_str_new2("PATH_INFO"));
-  request_uri = rb_obj_freeze(rb_str_new2("REQUEST_URI"));
-  query_string = rb_obj_freeze(rb_str_new2("QUERY_STRING"));
-  http_fragment = rb_obj_freeze(rb_str_new2("HTTP_FRAGMENT"));
-  request_method = rb_obj_freeze(rb_str_new2("REQUEST_METHOD"));
-  rb_remote_addr = rb_obj_freeze(rb_str_new2("REMOTE_ADDR"));
-  rb_remote_port = rb_obj_freeze(rb_str_new2("REMOTE_PORT"));
-  rack_input = rb_obj_freeze(rb_str_new2("rack.input"));
-  http_connection = rb_obj_freeze(rb_str_new2("HTTP_CONNECTION"));
+  server_protocol = rb_obj_freeze(rb_enc_str_new_cstr("SERVER_PROTOCOL", u8_encoding));
+  path_info = rb_obj_freeze(rb_enc_str_new_cstr("PATH_INFO", u8_encoding));
+  request_uri = rb_obj_freeze(rb_enc_str_new_cstr("REQUEST_URI", u8_encoding));
+  query_string = rb_obj_freeze(rb_enc_str_new_cstr("QUERY_STRING", u8_encoding));
+  http_fragment = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_FRAGMENT", u8_encoding));
+  request_method = rb_obj_freeze(rb_enc_str_new_cstr("REQUEST_METHOD", u8_encoding));
+  rb_remote_addr = rb_obj_freeze(rb_enc_str_new_cstr("REMOTE_ADDR", u8_encoding));
+  rb_remote_port = rb_obj_freeze(rb_enc_str_new_cstr("REMOTE_PORT", u8_encoding));
+  rack_input = rb_obj_freeze(rb_enc_str_new_cstr("rack.input"));
+  http_connection = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_CONNECTION", u8_encoding));
 
-  content_type = rb_obj_freeze(rb_str_new2("CONTENT_TYPE"));
-  content_length_key = rb_obj_freeze(rb_str_new2("CONTENT_LENGTH"));
+  content_type = rb_obj_freeze(rb_enc_str_new_cstr("CONTENT_TYPE", u8_encoding));
+  content_length_key = rb_obj_freeze(rb_enc_str_new_cstr("CONTENT_LENGTH", u8_encoding));
 
-  h_content_type = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_TYPE"));
-  h_content_length = rb_obj_freeze(rb_str_new2("HTTP_CONTENT_LENGTH"));
+  h_content_type = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_CONTENT_TYPE", u8_encoding));
+  h_content_length = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_CONTENT_LENGTH", u8_encoding));
 
-  http_10 = rb_obj_freeze(rb_str_new2("HTTP/1.0"));
-  http_11 = rb_obj_freeze(rb_str_new2("HTTP/1.1"));
+  http_10 = rb_obj_freeze(rb_enc_str_new_cstr("HTTP/1.0", u8_encoding));
+  http_11 = rb_obj_freeze(rb_enc_str_new_cstr("HTTP/1.1", u8_encoding));
 
-  http_delete = rb_obj_freeze(rb_str_new2("DELETE"));
-  http_get = rb_obj_freeze(rb_str_new2("GET"));
-  http_head = rb_obj_freeze(rb_str_new2("HEAD"));
-  http_post = rb_obj_freeze(rb_str_new2("POST"));
-  http_put = rb_obj_freeze(rb_str_new2("PUT"));
-  http_connect = rb_obj_freeze(rb_str_new2("CONNECT"));
-  http_options = rb_obj_freeze(rb_str_new2("OPTIONS"));
-  http_trace = rb_obj_freeze(rb_str_new2("TRACE"));
-  http_copy = rb_obj_freeze(rb_str_new2("COPY"));
-  http_lock = rb_obj_freeze(rb_str_new2("LOCK"));
-  http_mkcol = rb_obj_freeze(rb_str_new2("MKCOL"));
-  http_move = rb_obj_freeze(rb_str_new2("MOVE"));
-  http_propfind= rb_obj_freeze(rb_str_new2("PROPFIND"));
-  http_proppatch = rb_obj_freeze(rb_str_new2("PROPPATCH"));
-  http_unlock = rb_obj_freeze(rb_str_new2("UNLOCK"));
-  http_report = rb_obj_freeze(rb_str_new2("REPORT"));
-  http_mkactivity = rb_obj_freeze(rb_str_new2("MKACTIVITY"));
-  http_checkout = rb_obj_freeze(rb_str_new2("CHECKOUT"));
-  http_merge = rb_obj_freeze(rb_str_new2("MERGE"));
+  http_delete = rb_obj_freeze(rb_enc_str_new_cstr("DELETE", u8_encoding));
+  http_get = rb_obj_freeze(rb_enc_str_new_cstr("GET", u8_encoding));
+  http_head = rb_obj_freeze(rb_enc_str_new_cstr("HEAD", u8_encoding));
+  http_post = rb_obj_freeze(rb_enc_str_new_cstr("POST", u8_encoding));
+  http_put = rb_obj_freeze(rb_enc_str_new_cstr("PUT", u8_encoding));
+  http_connect = rb_obj_freeze(rb_enc_str_new_cstr("CONNECT", u8_encoding));
+  http_options = rb_obj_freeze(rb_enc_str_new_cstr("OPTIONS", u8_encoding));
+  http_trace = rb_obj_freeze(rb_enc_str_new_cstr("TRACE", u8_encoding));
+  http_copy = rb_obj_freeze(rb_enc_str_new_cstr("COPY", u8_encoding));
+  http_lock = rb_obj_freeze(rb_enc_str_new_cstr("LOCK", u8_encoding));
+  http_mkcol = rb_obj_freeze(rb_enc_str_new_cstr("MKCOL", u8_encoding));
+  http_move = rb_obj_freeze(rb_enc_str_new_cstr("MOVE", u8_encoding));
+  http_propfind= rb_obj_freeze(rb_enc_str_new_cstr("PROPFIND", u8_encoding));
+  http_proppatch = rb_obj_freeze(rb_enc_str_new_cstr("PROPPATCH", u8_encoding));
+  http_unlock = rb_obj_freeze(rb_enc_str_new_cstr("UNLOCK", u8_encoding));
+  http_report = rb_obj_freeze(rb_enc_str_new_cstr("REPORT", u8_encoding));
+  http_mkactivity = rb_obj_freeze(rb_enc_str_new_cstr("MKACTIVITY", u8_encoding));
+  http_checkout = rb_obj_freeze(rb_enc_str_new_cstr("CHECKOUT", u8_encoding));
+  http_merge = rb_obj_freeze(rb_enc_str_new_cstr("MERGE", u8_encoding));
 
-  http_user_agent = rb_obj_freeze(rb_str_new2("HTTP_USER_AGENT"));
-  http_referer = rb_obj_freeze(rb_str_new2("HTTP_REFERER"));
+  http_user_agent = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_USER_AGENT", u8_encoding));
+  http_referer = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_REFERER", u8_encoding));
 
-  http_expect = rb_obj_freeze(rb_str_new2("HTTP_EXPECT"));
+  http_expect = rb_obj_freeze(rb_enc_str_new_cstr("HTTP_EXPECT", u8_encoding));
 }
 
 
@@ -1845,7 +1846,7 @@ process_rack_app(client_t *cli)
 
   if (TYPE(response_body) == T_ARRAY) {
     cli->response_body_type = T_ARRAY;
-    cli->response_iter = rb_ary_join(response_body, rb_str_new2(""));
+    cli->response_iter = rb_ary_join(response_body, rb_enc_str_new_cstr("", u8_encoding));
   } else {
     cli->response_body_type = 0; // TODO: fix
     cli->response_iter = rb_funcall(response_body, i_toenum, 0);
@@ -1868,7 +1869,7 @@ process_rack_app(client_t *cli)
 
   char buff[64];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
-  cli->http_status = rb_str_new(buff, strlen(buff));
+  cli->http_status = rb_enc_str_new(buff, strlen(buff), u8_encoding);
   rb_gc_register_address(&cli->http_status);
 
   //check response
@@ -2018,7 +2019,7 @@ prepare_call_rack(client_t *client)
     rb_funcall((VALUE)req->body, i_seek, 1, INT2NUM(0));
     rb_hash_aset(req->environ, rack_input, (VALUE)req->body);
   } else {
-    object = rb_str_new2("");
+    object = rb_enc_str_new_cstr("", u8_encoding);
     input = rb_funcall(StringIO, i_new, 1, object);
     rb_hash_aset(req->environ, rack_input, input);
     req->body = input;
@@ -2253,15 +2254,16 @@ setup_server_env(void)
 }
 
 
-static void set_fd_limit(int nofiles) {
+static void
+set_fd_limit(int nofiles) {
   struct rlimit rlim;
-  getrlimit (RLIMIT_NOFILE, &rlim);
+  getrlimit(RLIMIT_NOFILE, &rlim);
   if (nofiles >= 0) {
     rlim.rlim_cur = nofiles;
     if ((unsigned int)nofiles > rlim.rlim_max) {
       rlim.rlim_max = nofiles;
     }
-    setrlimit (RLIMIT_NOFILE, &rlim);
+    setrlimit(RLIMIT_NOFILE, &rlim);
   }
 }
 
@@ -2591,6 +2593,7 @@ void
 Init_bossan_ext(void)
 {
   set_fd_limit(20000); // set resource limit
+  u8_encoding = rb_utf8_encoding();
 
   rb_gc_register_address(&version_key);
   rb_gc_register_address(&version_val);
@@ -2656,7 +2659,7 @@ Init_bossan_ext(void)
 
   rb_gc_register_address(&http_expect);
 
-  empty_string = rb_obj_freeze(rb_str_new2(""));
+  empty_string = rb_obj_freeze(rb_enc_str_new_cstr("", u8_encoding));
   rb_gc_register_address(&empty_string);
 
   rb_gc_register_address(&rack_app); //rack app

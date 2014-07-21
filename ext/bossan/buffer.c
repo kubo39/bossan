@@ -60,7 +60,7 @@ VALUE
 getRbString(buffer_t *buf)
 {
   VALUE o;
-  o = rb_str_new(buf->buf, buf->len);
+  o = rb_enc_str_new(buf->buf, buf->len, u8_encoding);
   free_buffer(buf);
   return o;
 }
