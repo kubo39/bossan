@@ -1,5 +1,4 @@
-#ifndef BUFFER_H
-#define BUFFER_H
+#pragma once
 
 #include "bossan.h"
 #include <stdio.h>
@@ -34,15 +33,3 @@ getRbString(buffer_t *buf);
 
 char *
 getString(buffer_t *buf);
-
-#endif
-
-
-
-
-
-
-
-
-
-
