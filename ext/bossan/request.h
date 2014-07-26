@@ -1,5 +1,4 @@
-#ifndef REQUEST_H
-#define REQUEST_H
+#pragma once
 
 #include <inttypes.h>
 #include "buffer.h"
@@ -61,5 +60,3 @@ void free_request_queue(request_queue *q);
 
 void
 free_request(request *req);
-
-#endif

@@ -1,5 +1,4 @@
-#ifndef CLIENT_H
-#define CLIENT_H
+#pragma once
 
 #include "request.h"
 
@@ -32,5 +31,3 @@ typedef struct _client {
 
   int response_body_type;  // response body type
 } client_t;
-
-#endif

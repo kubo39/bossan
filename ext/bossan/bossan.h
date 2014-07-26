@@ -1,5 +1,4 @@
-#ifndef BOSSAN_H
-#define BOSSAN_H
+#pragma once
 
 #include "ruby.h"
 #include "ruby/encoding.h"
@@ -77,6 +76,4 @@ extern rb_encoding* u8_encoding;
 #else
 # define likely(x) (x)
 # define unlikely(x) (x)
-#endif
-
 #endif
