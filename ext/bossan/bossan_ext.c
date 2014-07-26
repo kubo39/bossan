@@ -326,7 +326,9 @@ blocking_write(client_t *client, char *data, size_t len)
     if (len < send_len){
       send_len = len;
     }
-    r = write(client->fd, data, send_len);
+    if ((r = write(client->fd, data, send_len)) == -1) {
+      rb_sys_fail("write(2)");
+    }
     switch(r){
     case 0:
       return 1;
