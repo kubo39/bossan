@@ -1592,7 +1592,6 @@ setup_listen_sock(int fd)
   if ((r = fcntl(fd, F_SETFL, O_NONBLOCK)) == -1) {
     rb_sys_fail("fcntl(F_SETFL,O_NONBLOCK)");
   }
-  assert(r == 0);
 }
 
 
@@ -1601,16 +1600,13 @@ setup_sock(int fd)
 {
   int r;
   int on = 1;
-  if ((r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on))) == -1) {
-    rb_sys_fail("setsockopt(IPPROTO_TCP,TCP_NODELAY,on");
-  }
+  r = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on));
 #ifdef linux
   r = 0; // Use accept4() on Linux
 #else
   if ((r = fcntl(fd, F_SETFL, O_NONBLOCK)) == -1) {
     rb_sys_fail("fcntl(F_SETFL,O_NONBLOCK)");
   }
-  assert(r == 0);
 #endif
   return r;
 }
