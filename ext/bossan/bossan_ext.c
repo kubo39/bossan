@@ -1585,10 +1585,13 @@ setup_listen_sock(int fd)
 {
   int on = 1, r = -1;
 #ifdef linux
-  r = setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &on, sizeof(on));
+  if ((r = setsockopt(fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &on, sizeof(on))) == -1) {
+    rb_sys_fail("setsockopt(IPPROTO_TCP,TCP_DEFER_ACCEPT,on");
+  }
 #endif
-  r = fcntl(fd, F_SETFL, O_NONBLOCK);
-  assert(r == 0);
+  if ((r = fcntl(fd, F_SETFL, O_NONBLOCK)) == -1) {
+    rb_sys_fail("fcntl(F_SETFL,O_NONBLOCK)");
+  }
 }
 
 
@@ -1601,8 +1604,9 @@ setup_sock(int fd)
 #ifdef linux
   r = 0; // Use accept4() on Linux
 #else
-  r = fcntl(fd, F_SETFL, O_NONBLOCK);
-  assert(r == 0);
+  if ((r = fcntl(fd, F_SETFL, O_NONBLOCK)) == -1) {
+    rb_sys_fail("fcntl(F_SETFL,O_NONBLOCK)");
+  }
 #endif
   return r;
 }

@@ -1,10 +1,6 @@
 #pragma once
 
 #include "bossan.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <inttypes.h>
 
 typedef enum {
   WRITE_OK,
