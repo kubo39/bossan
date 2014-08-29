@@ -6,7 +6,7 @@ app = ->(env){
  [200,          # Status code
   {             # Response headers
     'Content-Type' => 'text/html',
-    'Content-Length' => body.join.size.to_s,
+    'Content-Length' => body.join.bytesize.to_s,
   },
   body]
 }
