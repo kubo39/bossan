@@ -1589,9 +1589,6 @@ setup_listen_sock(int fd)
     rb_sys_fail("setsockopt(IPPROTO_TCP,TCP_DEFER_ACCEPT,on");
   }
 #endif
-  if ((r = fcntl(fd, F_SETFL, O_NONBLOCK)) == -1) {
-    rb_sys_fail("fcntl(F_SETFL,O_NONBLOCK)");
-  }
 }
 
 
