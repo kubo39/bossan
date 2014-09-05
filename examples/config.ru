@@ -8,7 +8,7 @@ class MyApp
     [
      200, # Status code
      { 'Content-Type' => 'text/html',
-       'Content-Length' => body.join.size.to_s,
+       'Content-Length' => body.join.bytesize.to_s,
      }, # Reponse headers
      body # Body of the response
     ]
