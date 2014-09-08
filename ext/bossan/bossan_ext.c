@@ -722,10 +722,10 @@ rb_body_iterator(VALUE iterator)
 }
 
 
-static VALUE
-ret_qnil(void)
+static int
+ret_null(void)
 {
-  return Qnil;
+  return NULL;
 }
 
 
@@ -744,7 +744,7 @@ processs_write(client_t *client)
   iterator = client->response_iter;
 
   if (client->response_body_type != T_ARRAY) {
-    while ( (item = rb_rescue(rb_body_iterator, iterator, ret_qnil, NULL)) != Qnil ) {
+    while (item = rb_rescue(rb_body_iterator, iterator, ret_null, NULL)) {
 
       buf = StringValuePtr(item);
       buflen = RSTRING_LEN(item);
@@ -848,10 +848,10 @@ start_response_write(client_t *client)
     buf = StringValuePtr(item);
     buflen = RSTRING_LEN(item);
   } else {
-    item = rb_rescue(rb_body_iterator, client->response_iter, ret_qnil, NULL);
+    item = rb_rescue(rb_body_iterator, client->response_iter, ret_null, NULL);
     DEBUG("client %p :fd %d", client, client->fd);
 
-    if (item != Qnil) {
+    if (item) {
       //write string only
       buf = StringValuePtr(item);
       buflen = RSTRING_LEN(item);
