@@ -956,6 +956,7 @@ new_environ(client_t *client)
   char r_port[7];
 
   environ = rb_hash_new();
+  RB_GC_GUARD(environ);
 
   rb_hash_aset(environ, version_key, version_val);
   rb_hash_aset(environ, scheme_key, scheme_val);
@@ -1172,7 +1173,6 @@ message_begin_cb(http_parser *p)
   client->current_req = req;
   client->complete = 0;
   req->environ = new_environ(client);
-  rb_gc_register_address(&req->environ);
   push_request(client->request_queue, client->current_req);
   return 0;
 }
@@ -1215,7 +1215,7 @@ header_field_cb(http_parser *p, const char *buf, size_t len)
   }
 
   req->field = obj;
-  rb_gc_register_address(&req->field);
+  RB_GC_GUARD(req->field);
   req->last_header_element = FIELD;
   return 0;
 }
@@ -1242,7 +1242,8 @@ header_value_cb(http_parser *p, const char *buf, size_t len)
     return -1;
   }
   req->value = obj;
-  rb_gc_register_address(&req->value);
+  RB_GC_GUARD(req->value);
+
   req->last_header_element = VAL;
   return 0;
 }
@@ -1856,8 +1857,8 @@ process_rack_app(client_t *cli)
     cli->response_iter = rb_funcall(response_body, i_toenum, 0);
   }
 
-  rb_gc_register_address(&cli->headers);
-  rb_gc_register_address(&cli->response_iter);
+  RB_GC_GUARD(cli->headers);
+  RB_GC_GUARD(cli->response_iter);
 
   if (cli->response_closed) {
     //closed
@@ -1874,7 +1875,7 @@ process_rack_app(client_t *cli)
   char buff[64];
   sprintf(buff, "HTTP/1.%d %d %s\r\n", cli->http_parser->http_minor, cli->status_code, reason_phrase);
   cli->http_status = rb_enc_str_new(buff, strlen(buff), u8_encoding);
-  rb_gc_register_address(&cli->http_status);
+  RB_GC_GUARD(cli->http_status);
 
   //check response
   if(cli->response && cli->response == Qnil){
