@@ -722,10 +722,10 @@ rb_body_iterator(VALUE iterator)
 }
 
 
-static int
+static VALUE
 ret_null(void)
 {
-  return NULL;
+  return Qundef;
 }
 
 
@@ -744,7 +744,7 @@ processs_write(client_t *client)
   iterator = client->response_iter;
 
   if (client->response_body_type != T_ARRAY) {
-    while (item = rb_rescue(rb_body_iterator, iterator, ret_null, NULL)) {
+    while ( (item = rb_rescue(rb_body_iterator, iterator, ret_null, NULL)) != Qundef ) {
 
       buf = StringValuePtr(item);
       buflen = RSTRING_LEN(item);
@@ -966,6 +966,7 @@ new_environ(client_t *client)
   rb_hash_aset(environ, run_once_key, run_once_val);
   rb_hash_aset(environ, script_key, empty_string);
   rb_hash_aset(environ, server_name_key, server_name_val);
+
   rb_hash_aset(environ, server_port_key, server_port_val);
 
   object = rb_enc_str_new_cstr(client->remote_addr, u8_encoding);
