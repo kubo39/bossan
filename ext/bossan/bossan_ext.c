@@ -2238,12 +2238,23 @@ accept_callback(picoev_loop* loop, int fd, int events, void* cb_arg)
           picoev_add(loop, client_fd, PICOEV_READ, keep_alive_timeout, r_callback, (void *)client);
         }
       } else {
-        if (errno != EAGAIN && errno != EWOULDBLOCK) {
+        switch (errno) {
+        case EAGAIN:
+        case ENETDOWN:
+        case EPROTO:
+        case ENOPROTOOPT:
+        case EHOSTDOWN:
+        case ENONET:
+        case EHOSTUNREACH:
+        case EOPNOTSUPP:
+        case ENETUNREACH:
+          break;
+        default:
           write_error_log(__FILE__, __LINE__);
           // die
           loop_done = 0;
+          return;
         }
-        break;
       }
     }
   }
